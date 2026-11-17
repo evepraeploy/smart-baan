@@ -13,7 +13,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../auth/AuthProvider'
 import { getHouseBills, submitSlip, type Bill } from './api'
 import { compressSlipImage, type CompressedSlip } from '../../lib/image'
-import { formatBaht, formatDateTimeInputTH, formatMonthTH, parseDateTimeInputTH } from '../../lib/format'
+import { formatBaht, formatDateTimeInputTH, formatDateTimeTH, formatMonthTH, parseDateTimeInputTH } from '../../lib/format'
 import { messages } from '../../lib/messages.th'
 import { toThaiError } from '../../lib/errors'
 import { supabase } from '../../lib/supabase'
@@ -178,7 +178,7 @@ export function UploadSlipPage() {
               <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-text-muted">บาท</span>
             </div>
           </Field>
-          <Field label="วันและเวลาที่โอน">
+          <Field hint={transferredAt && !Number.isNaN(parseDateTimeInputTH(transferredAt).getTime()) ? `ตรงกับ ${formatDateTimeTH(parseDateTimeInputTH(transferredAt))}` : undefined} label="วันและเวลาที่โอน">
             <Input onChange={(event) => setTransferredAt(event.target.value)} required type="datetime-local" value={transferredAt} />
           </Field>
           <div className="grid gap-3">
