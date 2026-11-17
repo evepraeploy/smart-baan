@@ -9,12 +9,18 @@ const errorMessages: Record<string, string> = {
   NO_HOUSE: messages.unlinkedAccount,
   INVALID_AMOUNT: messages.amountRequired,
   INVALID_BILL_SELECTION: messages.monthRequired,
+  IDENTIFIER_REQUIRED: messages.identifierRequired,
+  REQUEST_NOT_OPEN: messages.resetRequestClosed,
 }
 
 export function toThaiError(error: unknown): string {
   const value = error as { code?: string; message?: string; name?: string; status?: number }
   const message = value?.message ?? ''
   if ((Object.values(messages) as string[]).includes(message)) return message
+  if (value?.code && errorMessages[value.code]) return errorMessages[value.code]
+  if (value?.code === 'same_password' || message.toLowerCase().includes('should be different from the old password')) {
+    return messages.passwordSameAsCurrent
+  }
   for (const [code, thai] of Object.entries(errorMessages)) {
     if (message.includes(code)) return thai
   }

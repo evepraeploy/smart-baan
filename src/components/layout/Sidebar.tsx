@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router'
-import { Banknote, Bell, ClipboardCheck, Home, LayoutDashboard, LogOut, Settings, Users, Wrench } from 'lucide-react'
+import { Banknote, Bell, ClipboardCheck, Home, KeyRound, LayoutDashboard, LogOut, Settings, UserRound, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../../features/auth/AuthProvider'
 import { Button } from '../ui/Button'
@@ -18,7 +18,12 @@ export function Sidebar() {
         { to: '/maintenance', label: 'งานซ่อม', Icon: Wrench },
         { to: '/finance', label: 'การเงิน', Icon: Banknote },
         { to: '/announcements', label: 'ประกาศ', Icon: Bell },
-        ...(admin ? [{ to: '/admin/houses', label: 'จัดการลูกบ้าน', Icon: Users }, { to: '/admin/settings', label: 'ตั้งค่าหมู่บ้าน', Icon: Settings }] : []),
+        ...(admin ? [
+          { to: '/admin/houses', label: 'จัดการลูกบ้าน', Icon: Users },
+          { to: '/admin/settings', label: 'ตั้งค่าหมู่บ้าน', Icon: Settings },
+          { to: '/admin/password-requests', label: 'คำขอรีเซ็ตรหัสผ่าน', Icon: KeyRound },
+        ] : []),
+        { to: '/profile', label: 'โปรไฟล์', Icon: UserRound },
       ]
     : [
         { to: '/', label: 'หน้าแรก', Icon: Home },
@@ -26,6 +31,7 @@ export function Sidebar() {
         { to: '/payments/history', label: 'ประวัติการชำระ', Icon: Banknote },
         { to: '/repairs', label: 'แจ้งซ่อม', Icon: Wrench },
         { to: '/announcements', label: 'ประกาศ', Icon: Bell },
+        { to: '/profile', label: 'โปรไฟล์', Icon: UserRound },
       ]
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-sidebar flex-col border-r border-border bg-white px-5 py-6 lg:flex">

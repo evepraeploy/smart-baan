@@ -3,9 +3,11 @@ import { AppShell } from './components/layout/AppShell'
 import { RequireAuth, RequireRole } from './components/layout/RequireAuth'
 import { useAuth } from './features/auth/AuthProvider'
 import { ChangePasswordPage } from './features/auth/ChangePasswordPage'
+import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { ProfilePage } from './features/auth/ProfilePage'
 import { HousesPage } from './features/admin/HousesPage'
+import { PasswordRequestsPage } from './features/admin/PasswordRequestsPage'
 import { SettingsPage } from './features/admin/SettingsPage'
 import { PaymentHistoryPage } from './features/payments/PaymentHistoryPage'
 import { UploadSlipPage } from './features/payments/UploadSlipPage'
@@ -26,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<LoginRoute />} path="/login" />
+      <Route element={<ForgotPasswordPage />} path="/forgot-password" />
       <Route element={<RequireAuth />}>
         <Route element={<ChangePasswordPage />} path="/change-password" />
         <Route element={<ForbiddenPage />} path="/forbidden" />
@@ -46,6 +49,7 @@ export default function App() {
           </Route>
           <Route element={<RequireRole roles={['admin']} />}>
             <Route element={<HousesPage />} path="admin/houses" />
+            <Route element={<PasswordRequestsPage />} path="admin/password-requests" />
             <Route element={<SettingsPage />} path="admin/settings" />
           </Route>
           <Route element={<RequireRole roles={['committee', 'admin']} />}>

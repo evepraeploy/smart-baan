@@ -11,6 +11,7 @@ const pageTitles: Record<string, string> = {
   '/payments/history': 'ประวัติการชำระ',
   '/admin/slips': 'ตรวจสลิป',
   '/admin/houses': 'จัดการลูกบ้าน',
+  '/admin/password-requests': 'คำขอรีเซ็ตรหัสผ่าน',
   '/profile': 'โปรไฟล์',
   '/more': labels.more,
   '/repairs': 'แจ้งซ่อม',

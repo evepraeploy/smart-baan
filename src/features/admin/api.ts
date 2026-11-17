@@ -19,6 +19,18 @@ export type NewUser = {
   password: string
 }
 
+export type PasswordResetRequest = {
+  id: string
+  user_id: string
+  display_name: string
+  login_identifier: string
+  phone: string | null
+  house_no: string | null
+  contact_phone: string | null
+  note: string | null
+  created_at: string
+}
+
 export async function getHouses(): Promise<ManagedHouse[]> {
   if (!supabase) throw new Error(messages.generic)
   const { data, error } = await supabase.from('houses')
@@ -26,6 +38,22 @@ export async function getHouses(): Promise<ManagedHouse[]> {
     .order('house_no')
   if (error) throw error
   return (data ?? []) as unknown as ManagedHouse[]
+}
+
+export async function listPasswordResetRequests(): Promise<PasswordResetRequest[]> {
+  if (!supabase) throw new Error(messages.generic)
+  const { data, error } = await supabase.rpc('list_password_reset_requests')
+  if (error) throw error
+  return (data ?? []) as PasswordResetRequest[]
+}
+
+export async function closePasswordResetRequest(id: string, status: 'resolved' | 'dismissed'): Promise<void> {
+  if (!supabase) throw new Error(messages.generic)
+  const { error } = await supabase.rpc('close_password_reset_request', {
+    p_request_id: id,
+    p_status: status,
+  })
+  if (error) throw error
 }
 
 export async function adminUserAction<T>(body: Record<string, unknown>): Promise<T> {

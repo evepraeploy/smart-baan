@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { PGlite } from '@electric-sql/pglite'
 
 const db = new PGlite()
 const residentOne = '10000000-0000-4000-8000-000000000001'
 const residentTwo = '10000000-0000-4000-8000-000000000002'
 const committee = '10000000-0000-4000-8000-000000000003'
+const admin = '10000000-0000-4000-8000-000000000004'
 const houseOne = '20000000-0000-4000-8000-000000000001'
 const houseTwo = '20000000-0000-4000-8000-000000000002'
 let rolesAvailable = true
@@ -54,6 +55,7 @@ beforeAll(async () => {
   if (rolesAvailable) await db.exec('grant select, insert on storage.objects to authenticated')
   await runMigration('supabase/migrations/202611170001_initial_schema.sql')
   await runMigration('supabase/migrations/202611170002_storage.sql')
+  await runMigration('supabase/migrations/202611170004_password_reset_requests.sql')
 
   await db.exec(`
     insert into public.settings (id, village_name, monthly_fee, bill_due_day)
@@ -65,15 +67,18 @@ beforeAll(async () => {
     insert into auth.users (id, email) values
       ('${residentOne}', 'u-99-1@village.internal'),
       ('${residentTwo}', 'u-99-2@village.internal'),
-      ('${committee}', 'u-committee@village.internal');
+      ('${committee}', 'u-committee@village.internal'),
+      ('${admin}', 'u-admin@village.internal');
     insert into public.profiles (id, display_name, login_identifier) values
       ('${residentOne}', 'ลูกบ้าน 1', '99/1'),
       ('${residentTwo}', 'ลูกบ้าน 2', '99/2'),
-      ('${committee}', 'กรรมการ', 'committee');
+      ('${committee}', 'กรรมการ', 'committee'),
+      ('${admin}', 'ผู้ดูแลระบบ', 'admin');
     insert into public.user_roles (user_id, role) values
       ('${residentOne}', 'resident'),
       ('${residentTwo}', 'resident'),
-      ('${committee}', 'committee');
+      ('${committee}', 'committee'),
+      ('${admin}', 'admin');
     insert into public.house_members (house_id, user_id) values
       ('${houseOne}', '${residentOne}'),
       ('${houseTwo}', '${residentTwo}');
@@ -92,6 +97,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.close()
+})
+
+afterEach(async () => {
+  await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false)`)
 })
 
 describe.sequential('การทำงานของ migration และ RPC ใน PostgreSQL', () => {
@@ -183,6 +192,90 @@ describe.sequential('การทำงานของ migration และ RPC �
     `)
     await expect(db.query(`update public.bills set status = 'paid' where house_id = '${houseOne}'`)).rejects.toThrow()
     await expect(db.query(`update public.slips set status = 'approved' where house_id = '${houseOne}'`)).rejects.toThrow()
+    await db.exec('reset role')
+  })
+
+  it('ไม่เปิดเผยว่ามีบัญชีหรือไม่เมื่อค้นหาบ้านเลขที่ที่ไม่มีอยู่', async () => {
+    await db.query(`select public.request_password_reset('บ้านที่ไม่มีในระบบ')`)
+    const result = await db.query<{ count: number }>(`select count(*)::int as count from public.password_reset_requests`)
+    expect(Number(result.rows[0].count)).toBe(0)
+  })
+
+  it('สร้างคำขอเปิดเพียงรายการเดียวต่อผู้ใช้', async () => {
+    await db.query(`select public.request_password_reset('99/1')`)
+    await db.query(`select public.request_password_reset('99/1')`)
+    const result = await db.query<{ count: number }>(
+      `select count(*)::int as count from public.password_reset_requests where user_id = '${residentOne}' and status = 'open'`,
+    )
+    expect(Number(result.rows[0].count)).toBe(1)
+  })
+
+  it('ค้นหาบัญชีด้วยเบอร์โทรศัพท์ที่มีเครื่องหมายคั่นได้', async () => {
+    await db.query(`update public.profiles set phone = '0810000002' where id = '${residentTwo}'`)
+    await db.query(`select public.request_password_reset('081-000-0002')`)
+    const result = await db.query<{ count: number }>(
+      `select count(*)::int as count from public.password_reset_requests where user_id = '${residentTwo}' and status = 'open'`,
+    )
+    expect(Number(result.rows[0].count)).toBe(1)
+  })
+
+  it('ปฏิเสธตัวระบุที่ว่างเปล่า', async () => {
+    await expect(db.query(`select public.request_password_reset('   ')`)).rejects.toThrow('IDENTIFIER_REQUIRED')
+  })
+
+  it('ลูกบ้านและกรรมการไม่มีสิทธิ์ดูหรือปิดคำขอ', async () => {
+    for (const userId of [residentOne, committee]) {
+      await db.exec(`select set_config('request.jwt.claim.sub', '${userId}', false)`)
+      await expect(db.query(`select * from public.list_password_reset_requests()`)).rejects.toThrow('FORBIDDEN')
+      await expect(db.query(
+        `select public.close_password_reset_request('30000000-0000-4000-8000-000000000003', 'dismissed')`,
+      )).rejects.toThrow('FORBIDDEN')
+    }
+  })
+
+  it('ผู้ดูแลดูและปิดคำขอได้ พร้อมบันทึก audit และเปิดคำขอใหม่ได้ภายหลัง', async () => {
+    await db.exec(`select set_config('request.jwt.claim.sub', '${admin}', false)`)
+    const listed = await db.query<{
+      id: string
+      user_id: string
+      house_no: string | null
+    }>(`select * from public.list_password_reset_requests()`)
+    expect(listed.rows).toHaveLength(2)
+    const residentRequest = listed.rows.find((request) => request.user_id === residentOne)
+    expect(residentRequest?.house_no).toBe('99/1')
+    expect(residentRequest).toBeDefined()
+
+    await db.query(
+      `select public.close_password_reset_request('${residentRequest!.id}', 'resolved')`,
+    )
+    const closed = await db.query<{ status: string; resolved_by: string }>(
+      `select status, resolved_by from public.password_reset_requests where id = '${residentRequest!.id}'`,
+    )
+    expect(closed.rows[0]).toMatchObject({ status: 'resolved', resolved_by: admin })
+    const audit = await db.query<{ count: number }>(
+      `select count(*)::int as count from public.audit_logs where action = 'close_password_reset_request' and entity_id = '${residentRequest!.id}'`,
+    )
+    expect(Number(audit.rows[0].count)).toBe(1)
+
+    await expect(db.query(
+      `select public.close_password_reset_request('${residentRequest!.id}', 'resolved')`,
+    )).rejects.toThrow('REQUEST_NOT_OPEN')
+    await expect(db.query(
+      `select public.close_password_reset_request('${listed.rows.find((request) => request.user_id === residentTwo)!.id}', 'open')`,
+    )).rejects.toThrow('INVALID_STATUS')
+
+    await db.query(`select public.request_password_reset('99/1')`)
+    const newRequest = await db.query<{ count: number }>(
+      `select count(*)::int as count from public.password_reset_requests where user_id = '${residentOne}' and status = 'open'`,
+    )
+    expect(Number(newRequest.rows[0].count)).toBe(1)
+  })
+
+  it('anon ส่งคำขอได้แต่ดูคำขอไม่ได้', async () => {
+    if (!rolesAvailable) return
+    await db.exec('set role anon')
+    await db.query(`select public.request_password_reset('99/2')`)
+    await expect(db.query(`select * from public.list_password_reset_requests()`)).rejects.toThrow()
     await db.exec('reset role')
   })
 

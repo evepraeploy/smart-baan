@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { Home, KeyRound } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { messages } from '../../lib/messages.th'
@@ -78,6 +78,7 @@ export function LoginPage() {
               <Button className="w-full" disabled={offline} onClick={loginWithGoogle} type="button" variant="secondary">เข้าสู่ระบบด้วย Google</Button>
             )}
           </form>
+          <Link className="mt-3 flex min-h-touch items-center justify-center text-primary-700" to="/forgot-password">ลืมรหัสผ่าน?</Link>
         </Card>
       </div>
     </main>
