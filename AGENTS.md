@@ -36,6 +36,8 @@
 4. รัน `supabase/seed.sql` หนึ่งครั้งใน SQL Editor ของ Supabase หรือผ่าน `psql` เพื่อสร้าง settings และ 40 บ้านตัวอย่าง
 5. สร้างบัญชีผู้ใช้จากไฟล์ CSV ตัวอย่าง: `node scripts/provision-users.mjs scripts/users.example.csv`
    ตั้ง `SUPABASE_URL` และ `SUPABASE_SERVICE_ROLE_KEY` ใน environment ก่อนรัน ผลลัพธ์และรหัสผ่านจะถูกเขียนไว้ใน `scripts/provisioned-users.csv` ซึ่งถูก gitignore และควรเก็บอย่างปลอดภัย
+6. Migrations `0004`–`0007` เพิ่มคำขอรีเซ็ตรหัสผ่าน การเงิน/ประกาศ เรื่องแจ้งซ่อม และทะเบียนอุปกรณ์ตามลำดับ
+7. `supabase/seed-dev-phase2-4.sql` เป็นข้อมูลตัวอย่างสำหรับโปรเจกต์ dev เท่านั้น ห้ามรันกับ production
 
 Migration ของ `pg_cron` อาจต้องใช้สิทธิ์ระดับโปรเจกต์ที่เปิด extension ได้ หากโปรเจกต์ไม่อนุญาต ให้เปิดส่วนขยาย `pg_cron` ใน Supabase ก่อนนำ migration สุดท้ายไปใช้
 

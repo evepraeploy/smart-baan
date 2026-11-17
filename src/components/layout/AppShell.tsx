@@ -12,19 +12,24 @@ const pageTitles: Record<string, string> = {
   '/admin/slips': 'ตรวจสลิป',
   '/admin/houses': 'จัดการลูกบ้าน',
   '/admin/password-requests': 'คำขอรีเซ็ตรหัสผ่าน',
+  '/admin/payment-status': 'สถานะการจ่าย',
+  '/reports': 'รายงานการเงิน',
   '/profile': 'โปรไฟล์',
   '/more': labels.more,
   '/repairs': 'แจ้งซ่อม',
+  '/repairs/new': 'แจ้งเรื่องใหม่',
   '/announcements': 'ประกาศ',
   '/maintenance': 'งานซ่อม',
+  '/assets': 'ทะเบียนอุปกรณ์',
   '/finance': 'การเงิน',
   '/admin/settings': 'ตั้งค่าหมู่บ้าน',
+  '/admin/contractors': 'รายชื่อช่าง',
 }
 
 export function AppShell() {
   const location = useLocation()
   const { house } = useAuth()
-  const title = pageTitles[location.pathname] ?? 'ระบบหมู่บ้าน'
+  const title = pageTitles[location.pathname] ?? (location.pathname.startsWith('/repairs/') ? 'รายละเอียดเรื่อง' : location.pathname.startsWith('/maintenance/') ? 'รายละเอียดงานซ่อม' : location.pathname.startsWith('/assets/') ? 'รายละเอียดอุปกรณ์' : 'ระบบหมู่บ้าน')
   return (
     <div className="min-h-dvh">
       <Sidebar />

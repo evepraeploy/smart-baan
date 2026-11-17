@@ -1,13 +1,15 @@
 import { NavLink, useNavigate } from 'react-router'
-import { Banknote, Bell, ClipboardCheck, Home, KeyRound, LayoutDashboard, LogOut, Settings, UserRound, Users, Wrench } from 'lucide-react'
+import { Banknote, Bell, ClipboardCheck, ClipboardList, FileText, Grid3X3, HardHat, Home, KeyRound, LayoutDashboard, LogOut, Settings, UserRound, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../../features/auth/AuthProvider'
+import { useUnreadAnnouncements } from '../../features/announcements/useUnreadAnnouncements'
 import { Button } from '../ui/Button'
 
 type Item = { to: string; label: string; Icon: LucideIcon }
 
 export function Sidebar() {
   const { profile, house, roles, logout } = useAuth()
+  const unread = useUnreadAnnouncements()
   const navigate = useNavigate()
   const committee = roles.includes('committee') || roles.includes('admin')
   const admin = roles.includes('admin')
@@ -16,7 +18,11 @@ export function Sidebar() {
         { to: '/', label: 'ภาพรวม', Icon: LayoutDashboard },
         { to: '/admin/slips', label: 'ตรวจสลิป', Icon: ClipboardCheck },
         { to: '/maintenance', label: 'งานซ่อม', Icon: Wrench },
+        { to: '/assets', label: 'ทะเบียนอุปกรณ์', Icon: ClipboardList },
         { to: '/finance', label: 'การเงิน', Icon: Banknote },
+        { to: '/admin/payment-status', label: 'สถานะการจ่าย', Icon: Grid3X3 },
+        { to: '/reports', label: 'รายงานการเงิน', Icon: FileText },
+        { to: '/admin/contractors', label: 'รายชื่อช่าง', Icon: HardHat },
         { to: '/announcements', label: 'ประกาศ', Icon: Bell },
         ...(admin ? [
           { to: '/admin/houses', label: 'จัดการลูกบ้าน', Icon: Users },
@@ -43,6 +49,7 @@ export function Sidebar() {
         {items.map(({ to, label, Icon }) => (
           <NavLink key={to} className={({ isActive }) => `flex min-h-touch items-center gap-3 rounded-md border-l-[3px] px-3 font-semibold ${isActive ? 'border-primary-700 bg-primary-50 text-primary-700' : 'border-transparent text-text-body hover:bg-subtle'}`} end={to === '/'} to={to}>
             <Icon aria-hidden="true" size={22} />{label}
+            {to === '/announcements' && unread > 0 && <span aria-label={`${unread} ประกาศใหม่`} className="ml-auto grid min-h-6 min-w-6 place-items-center rounded-full bg-status-danger-bg px-1 text-caption font-bold text-status-danger-fg">{unread > 9 ? '9+' : unread}</span>}
           </NavLink>
         ))}
       </nav>

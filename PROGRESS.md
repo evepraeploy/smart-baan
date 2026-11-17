@@ -11,10 +11,10 @@
 
 | รายการ | สถานะ |
 |---|---|
-| **เฟสปัจจุบัน** | **Phase 1 — MVP: Login + ส่งสลิป + ตรวจสลิป** |
-| ความคืบหน้า Phase 1 | โค้ดครบ ผ่านการตรวจในเครื่อง ผ่าน E2E กับ `baan-dev` และ deploy ขึ้น Cloudflare Pages แล้ว (ชี้ไปที่ `baan-dev`) — **เหลือทดสอบบนมือถือจริง, GitHub secrets, prod และ Pilot** |
+| **เฟสปัจจุบัน** | **เตรียม UAT รวม Phase 1-4** (โค้ด Phase 2-4 เสร็จในเครื่อง — รอ apply migration 0005-0007 บน `baan-dev`) |
+| ความคืบหน้า Phase 1 | โค้ดครบ ผ่านการตรวจในเครื่อง ผ่าน E2E กับ `baan-dev`, deploy ขึ้น Cloudflare Pages (ชี้ไปที่ `baan-dev`), ตั้ง GitHub secrets และทดสอบบนมือถือจริงแล้ว (สลิป 2 ธนาคาร) — **เหลือ UAT กับลูกบ้าน (บน `baan-dev`), ตั้งค่า prod หลัง UAT และ Pilot** |
 | Supabase | `baan-dev`: ใช้ migration 4 ชุด (รวม `password_reset_requests`) + seed (40 หลัง) + สร้างบิล พ.ย. 2569 (40 ใบ) + deploy `admin-users` แล้ว + บัญชีทดสอบ 5 บัญชี (`99/1`, `99/2`, `99/5`, `committee02`, `admin01` — รหัสผ่านรีเซ็ตใหม่ 2026-11-17 อยู่ใน `scripts/provisioned-users.csv` ที่ถูก gitignore; บัญชีที่ถูกบังคับเปลี่ยนรหัสอาจถูกเปลี่ยนไปแล้วระหว่างทดสอบ เช่น `admin01`) · มีข้อมูลทดสอบ (บิลเดือนถัดไป, สลิป, รูปใน Storage) ค้างอยู่ · `baan-prod`: ยังว่าง (ผู้ใช้เลือกยังไม่ตั้งค่า) |
-| เป้าหมายถัดไป | ทดสอบบนมือถือจริง (ผ่าน URL Cloudflare) → ตั้ง GitHub secrets → ตั้งค่า `baan-prod` เมื่อได้ข้อมูลจริง → Pilot 5-10 หลังในรอบ 25-5 |
+| เป้าหมายถัดไป | UAT กับลูกบ้านบน `baan-dev` → ตั้งค่า `baan-prod` ด้วยข้อมูลจริง (หลัง UAT) → Pilot 5-10 หลังในรอบ 25-5 |
 
 ### สภาพแวดล้อม
 
@@ -56,8 +56,9 @@
 | 7 | หน้าตรวจสลิป + RPC `approve_slip` / `reject_slip` (transaction, กันอนุมัติซ้ำ) | `[x]` | `src/features/review/**` |
 | 8 | หน้าประวัติการชำระของลูกบ้าน | `[x]` | `src/features/payments/PaymentHistoryPage.tsx` |
 | 9 | GitHub Actions: CI, keep-alive รายวัน, backup `pg_dump` รายเดือน | `[x]` | `.github/workflows/*.yml` |
-| 10 | ทดสอบตาม AC 5.1-5.3, 5.9 + ทดสอบ RLS ด้วย API ตรง | `[~]` | `scripts/e2e-dev.mjs` (API 39/39 ผ่าน), browser flow ผ่าน — เหลือมือถือจริง (iOS/Android, HEIC, สแกน QR สลิปจริง 5 ธนาคาร, Slow 3G) |
-| 11 | Pilot ลูกบ้าน 5-10 หลังในรอบ 25-5 | `[ ]` | — |
+| 10 | ทดสอบตาม AC 5.1-5.3, 5.9 + ทดสอบ RLS ด้วย API ตรง | `[~]` | `scripts/e2e-dev.mjs` (API 39/39 ผ่าน), browser flow ผ่าน, มือถือจริงผ่าน URL Cloudflare ผ่าน (สลิป 2 ธนาคาร) — เหลือสลิปอีก 3 ธนาคาร (เป้า 5), HEIC, Slow 3G ซึ่งจะเก็บระหว่าง UAT |
+| 11 | UAT กับลูกบ้านบน `baan-dev` | `[ ]` | — |
+| 12 | ตั้งค่า `baan-prod` (หลัง UAT) + Pilot ลูกบ้าน 5-10 หลังในรอบ 25-5 | `[ ]` | — |
 
 **งานเพิ่มเติมที่ทำใน Phase 1:** หน้าจัดการบ้าน/ผู้ใช้ (`/admin/houses`), หน้าตั้งค่าหมู่บ้าน (`/admin/settings`), แถบโทรด่วน (`QuickCallBar`), หน้า "เร็ว ๆ นี้" สำหรับเมนูของเฟสถัดไป, เปลี่ยนรหัสผ่านด้วยตัวเอง (ต้องกรอกรหัสปัจจุบัน, เมนู "โปรไฟล์" ใน sidebar ทุกบทบาท), หน้า "ลืมรหัสผ่าน" (`/forgot-password`) + หน้าคำขอรีเซ็ตรหัสผ่านสำหรับ admin (`/admin/password-requests`, migration `…0004_password_reset_requests.sql`)
 
@@ -73,35 +74,38 @@
 - [x] Provision ผู้ใช้ทดสอบ 5 บัญชี
 - [x] ปิด "Allow new users to sign up" ใน Supabase Auth ทั้ง dev และ prod
 - [x] ทดสอบ end-to-end กับ `baan-dev` ตาม AC 5.2-5.3: API 39/39 PASS (RLS, Storage, อนุมัติซ้ำ/พร้อมกัน, ปฏิเสธ, Edge Function) + browser flow มือถือ 390px (รูป 4.39 MB → 181 KB, ไม่มี console error) — แก้บั๊กหน้าเปลี่ยนรหัสผ่านวนกลับซ้ำ
-- [ ] ทดสอบบนมือถือจริง iOS/Android (ถ่ายรูป, HEIC, สลิปจริง 5 ธนาคารสแกน QR ได้, Slow 3G ≤ 15 วินาที)
+- [~] ทดสอบบนมือถือจริงผ่าน URL Cloudflare — ผ่านกับสลิป 2 ธนาคาร · เหลือ: สลิปอีก 3 ธนาคาร, HEIC (iPhone), Slow 3G ≤ 15 วินาที — เก็บระหว่าง UAT
 - [x] ช่องวันที่-เวลาโอนแสดงข้อความ พ.ศ. กำกับใต้ช่อง (เช่น "ตรงกับ 25 พ.ย. 2569 14:30 น.") เพราะ `datetime-local` แสดงตาม locale เครื่อง (AC 5.9)
 - [x] สร้าง GitHub repo + push, เชื่อม Cloudflare Pages
-- [x] เปลี่ยนรหัสผ่านด้วยตัวเอง + ลืมรหัสผ่าน/คำขอรีเซ็ต — unit 16 tests, PGlite 16 tests, apply migration บน `baan-dev` และทดสอบ anon (ส่งคำขอได้, ดูรายการไม่ได้) แล้ว — ยังไม่ได้ทดสอบฝั่ง admin บน `baan-dev`
-- [ ] ตั้ง GitHub Actions secrets (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE`) และตรวจว่า workflow CI/keep-alive/backup รันผ่าน
-- [ ] Deploy `baan-prod` (migration 4 ชุด + `admin-users` + ข้อมูลจริง) และ Pilot
+- [x] เปลี่ยนรหัสผ่านด้วยตัวเอง + ลืมรหัสผ่าน/คำขอรีเซ็ต — unit 16 tests, PGlite 16 tests, apply migration บน `baan-dev`, ทดสอบ anon (ส่งคำขอได้, ดูรายการไม่ได้) และผู้ใช้ทดสอบฝั่ง admin บนเว็บแล้ว
+- [x] ตั้ง GitHub Actions secrets 4 ตัว (ชี้ไปที่ `baan-dev`) · CI ผ่านทุก commit ตั้งแต่แก้ lockfile
+- [ ] รัน keep-alive และ backup ด้วยมือ (Run workflow) ครั้งแรกเพื่อยืนยันว่า secrets ถูกต้อง
+- [ ] หลัง UAT: Deploy `baan-prod` (migration 4 ชุด + `admin-users` + ข้อมูลจริง), เปลี่ยน GitHub secrets และ env ของ Cloudflare ให้ชี้ไปที่ prod แล้ว Pilot
 
 ## Phase 2 — การเงินและประกาศ
 
-- [ ] 1. Ledger รายรับ-รายจ่าย + แนบรูปบิล + หมวดหมู่
-- [ ] 2. Dashboard กรรมการ + ตารางสถานะ 40 × 12
-- [ ] 3. รายงานการเงินภาพรวมสำหรับลูกบ้าน + Export CSV
-- [ ] 4. ระบบประกาศ (ปักหมุด, วันหมดอายุ, badge ยังไม่อ่าน) + แถบโทรด่วน *(UI แถบโทรด่วนและหน้าตั้งค่าเบอร์ทำล่วงหน้าแล้วใน Phase 1 — ยังไม่ได้ทดสอบ)*
-- [ ] 5. ทดสอบตาม AC 5.4, 5.7 → เปิดใช้ครบ 40 หลัง
+> Phase 2-4 เขียนโค้ดครบและผ่านการตรวจในเครื่องแล้ว (typecheck, lint, unit 23 tests, PGlite 33 tests, build, code review) — จะทดสอบรวมกันใน UAT รอบเดียวกับ Phase 1 · **ยังไม่ได้ apply migration 0005-0007 + `seed-dev-phase2-4.sql` บน `baan-dev`** (MCP `apply_migration` ถูกปฏิเสธ — รอผู้ใช้รันใน SQL Editor)
+
+- [x] 1. Ledger รายรับ-รายจ่าย + แนบรูปบิล (bucket `receipts`) + หมวดหมู่ + Export CSV รายเดือน (`/finance`, RPC `create/update/delete_ledger_entry`, รายการจากสลิปแก้ไขไม่ได้) — `…0005_finance_announcements.sql`
+- [x] 2. Dashboard กรรมการ (RPC `get_committee_dashboard`) + ตารางสถานะ 40 × 12 (`/admin/payment-status`)
+- [x] 3. รายงานการเงินภาพรวมสำหรับลูกบ้าน + Export CSV (`/reports`, RPC `get_finance_report` ไม่มีข้อมูลรายบ้าน)
+- [x] 4. ระบบประกาศ (`/announcements`: ปักหมุด, วันหมดอายุ, รูป, badge ยังไม่อ่านในเมนู) + แถบโทรด่วน *(แถบโทรด่วนยังไม่ได้ทดสอบบนเครื่องจริง)*
+- [ ] 5. ทดสอบตาม AC 5.4, 5.7 บน `baan-dev` (UAT)
 
 ## Phase 3 — Helpdesk / แจ้งซ่อม
 
-- [ ] 1. Migration `tickets`, `ticket_events`, `contractors` + RLS + bucket `tickets`
-- [ ] 2. ฟอร์มแจ้งเรื่อง, หน้า "เรื่องของฉัน"
-- [ ] 3. Tracking Board สำหรับกรรมการ (ช่างภายนอก, ค่าจ้าง, รูปหลังซ่อม, timeline)
-- [ ] 4. หน้ารายชื่อช่างภายนอก
-- [ ] 5. ทดสอบตาม AC 5.5
+- [x] 1. Migration `tickets`, `ticket_jobs` (ค่าจ้าง/ช่าง — กรรมการเท่านั้น), `ticket_photos`, `ticket_events`, `contractors` + RLS + bucket `tickets` — `…0006_tickets.sql`
+- [x] 2. ฟอร์มแจ้งเรื่อง (`/repairs/new`, รูปสูงสุด 3 รูป), หน้า "เรื่องของฉัน" (`/repairs`, `/repairs/:id` + timeline + ความเห็น)
+- [x] 3. Tracking Board สำหรับกรรมการ (`/maintenance`, `/maintenance/:id`: มอบหมายกรรมการ/ช่าง, วันนัด, ค่าจ้าง, รูปหลังซ่อม, ปิดงานพร้อม "บันทึกเป็นรายจ่าย")
+- [x] 4. หน้ารายชื่อช่างภายนอก (`/admin/contractors`)
+- [ ] 5. ทดสอบตาม AC 5.5 บน `baan-dev` (UAT)
 
 ## Phase 4 — ทรัพย์สินส่วนกลางและ PM
 
-- [ ] 1. Migration `assets`, `maintenance_logs` + RLS
-- [ ] 2. ทะเบียนอุปกรณ์ + ประวัติซ่อม
-- [ ] 3. `next_due_date` + widget PM บน Dashboard
-- [ ] 4. ทดสอบตาม AC 5.6
+- [x] 1. Migration `assets`, `maintenance_logs` + RLS + bucket `assets` + `tickets.asset_id` — `…0007_assets.sql`
+- [x] 2. ทะเบียนอุปกรณ์ + ประวัติซ่อม/บำรุงรักษา (`/assets`, `/assets/:id`, RPC `record_maintenance` บันทึกเป็นรายจ่ายได้) + เชื่อมงานซ่อมกับอุปกรณ์
+- [x] 3. `next_due_date` อัตโนมัติ (trigger + `record_maintenance`) + รายการ PM เลยกำหนด/ภายใน 14 วันบน Dashboard
+- [ ] 4. ทดสอบตาม AC 5.6 บน `baan-dev` (UAT)
 
 ## Phase 5 — Hardening และส่งมอบ
 
@@ -138,3 +142,5 @@
 | 2026-11-17 | รีเซ็ตรหัสผ่านบัญชีทดสอบ 5 บัญชีบน `baan-dev` (ไฟล์ `provisioned-users.csv` เดิมหาย) |
 | 2026-11-17 | เพิ่มเปลี่ยนรหัสผ่านด้วยตัวเอง + หน้าลืมรหัสผ่าน + หน้าคำขอรีเซ็ตสำหรับ admin, apply migration `password_reset_requests` บน `baan-dev` |
 | 2026-11-17 | เพิ่มข้อความวันที่ พ.ศ. ใต้ช่องวันและเวลาที่โอนในหน้าส่งสลิป |
+| 2026-11-17 | ตั้ง GitHub secrets, ทดสอบบนมือถือจริง (สลิป 2 ธนาคาร), ทดสอบคำขอรีเซ็ตรหัสผ่านฝั่ง admin — ตัดสินใจเลื่อนการตั้งค่า `baan-prod` ไปหลัง UAT กับลูกบ้าน |
+| 2026-11-17 | เขียนโค้ด Phase 2 (การเงิน, ตารางสถานะ, รายงาน, ประกาศ), Phase 3 (แจ้งซ่อม, บอร์ดงานซ่อม, ช่างภายนอก), Phase 4 (ทะเบียนอุปกรณ์, PM, Dashboard กรรมการ) + migration 0005-0007 + `seed-dev-phase2-4.sql` — ตัดสินใจ UAT ทุกฟีเจอร์พร้อมกัน |

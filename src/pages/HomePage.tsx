@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, Banknote, CalendarDays, ClipboardCheck, History, Upload, Wrench } from 'lucide-react'
+import { Banknote, CalendarDays, ClipboardCheck, History, Upload, Wrench } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { StatusBadge } from '../components/ui/Badge'
@@ -14,8 +14,8 @@ import { formatBaht, formatDateTH, formatMonthTH } from '../lib/format'
 import { toThaiError } from '../lib/errors'
 import { messages } from '../lib/messages.th'
 import type { Bill } from '../features/payments/api'
-
-type Summary = { pendingSlips: number; paid: number; pending: number; unpaid: number }
+import { getCommitteeDashboard, type CommitteeDashboard } from '../features/assets/api'
+import { PmBadge } from '../features/assets/AssetsPage'
 
 function currentPeriod() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -32,7 +32,7 @@ export function HomePage() {
   const { roles, house, profile } = useAuth()
   const committee = roles.includes('committee') || roles.includes('admin')
   const [bill, setBill] = useState<Bill | null>(null)
-  const [summary, setSummary] = useState<Summary>({ pendingSlips: 0, paid: 0, pending: 0, unpaid: 0 })
+  const [committeeDashboard, setCommitteeDashboard] = useState<CommitteeDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [generating, setGenerating] = useState(false)
@@ -43,23 +43,17 @@ export function HomePage() {
 
   useEffect(() => {
     let active = true
-    if (!supabase) return
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
     async function load() {
       try {
         if (committee) {
-          const [billsResult, slipsResult] = await Promise.all([
-            supabase!.from('bills').select('status').eq('period', period),
-            supabase!.from('slips').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-          ])
-          if (billsResult.error) throw billsResult.error
-          if (slipsResult.error) throw slipsResult.error
-          const statuses = billsResult.data ?? []
-          if (active) setSummary({
-            pendingSlips: slipsResult.count ?? 0,
-            paid: statuses.filter((item) => item.status === 'paid').length,
-            pending: statuses.filter((item) => item.status === 'pending_review').length,
-            unpaid: statuses.filter((item) => item.status === 'unpaid').length,
-          })
+          setCommitteeDashboard(null)
+          if (active) setError('')
+          const dashboard = await getCommitteeDashboard()
+          if (active) setCommitteeDashboard(dashboard)
         } else if (house) {
           const { data, error: queryError } = await supabase!.from('bills').select('id,house_id,period,amount,due_date,status,paid_at').eq('house_id', house.id).eq('period', period).maybeSingle()
           if (queryError) throw queryError
@@ -108,13 +102,27 @@ export function HomePage() {
               {offline && <span className="text-caption text-amber-800">{messages.offlineBills}</span>}
             </div>
           </div>
-          {loading ? <Spinner /> : (
+          {loading ? <Spinner /> : committeeDashboard ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Link to="/admin/slips"><Card className="h-full border-primary-200 bg-primary-50"><p className="text-body text-primary-900">สลิปรอตรวจ</p><p className="mt-2 text-display font-bold text-primary-700">{summary.pendingSlips} รายการ</p><span className="mt-2 flex items-center gap-2 font-semibold text-primary-700">ตรวจสลิป <ArrowRight size={18} /></span></Card></Link>
-              <SummaryCard label="ชำระแล้ว" value={summary.paid} tone="success" />
-              <SummaryCard label="รอตรวจสอบ" value={summary.pending} tone="warning" />
-              <SummaryCard label="รอชำระ" value={summary.unpaid} tone="neutral" />
+              <FinanceSummaryCard label="ยอดคงเหลือ" value={committeeDashboard?.balance ?? 0} to="/reports" />
+              <FinanceSummaryCard label="รายรับเดือนนี้" value={committeeDashboard?.month_income ?? 0} to="/finance" tone="success" />
+              <FinanceSummaryCard label="รายจ่ายเดือนนี้" value={committeeDashboard?.month_expense ?? 0} to="/finance" tone="danger" />
+              <CountCard label="สลิปรอตรวจ" value={committeeDashboard?.pending_slips ?? 0} to="/admin/slips" />
+              <CountCard label="งานซ่อมค้าง" value={committeeDashboard?.open_tickets ?? 0} to="/maintenance" detail={committeeDashboard ? `รอรับเรื่อง ${committeeDashboard.tickets_by_status.pending} · กำลังดำเนินการ ${committeeDashboard.tickets_by_status.in_progress}` : undefined} />
             </div>
+          ) : error ? null : <Card><p className="text-body text-text-muted">ยังไม่มีข้อมูล Dashboard</p></Card>}
+          {committeeDashboard && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <CountCard label="ชำระแล้ว" value={committeeDashboard.bills_this_month.paid} to="/admin/payment-status" tone="success" />
+                <CountCard label="รอตรวจสอบ" value={committeeDashboard.bills_this_month.pending_review} to="/admin/payment-status" tone="warning" />
+                <CountCard label="รอชำระ" value={committeeDashboard.bills_this_month.unpaid} to="/admin/payment-status" tone="neutral" />
+              </div>
+              <section className="grid gap-4 lg:grid-cols-2">
+                <PmSection assets={committeeDashboard.pm_overdue} title="เลยกำหนด PM" tone="danger" />
+                <PmSection assets={committeeDashboard.pm_due_soon} title="PM ใน 14 วัน" tone="warning" />
+              </section>
+            </>
           )}
           {error && <p className="text-body text-red-700">{error}</p>}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -147,11 +155,28 @@ export function HomePage() {
   )
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'success' | 'warning' | 'neutral' }) {
-  const style = {
-    success: 'border-status-success-border bg-status-success-bg text-status-success-fg',
-    warning: 'border-status-warning-border bg-status-warning-bg text-status-warning-fg',
-    neutral: 'border-status-neutral-border bg-status-neutral-bg text-status-neutral-fg',
-  }[tone]
-  return <Card className={`border ${style}`}><p className="text-body">{label}</p><p className="mt-2 text-display font-bold">{value} หลัง</p></Card>
+function FinanceSummaryCard({ label, value, to, tone = 'neutral' }: { label: string; value: number; to: string; tone?: 'neutral' | 'success' | 'danger' }) {
+  const color = tone === 'success'
+    ? 'text-status-success-fg'
+    : tone === 'danger' ? 'text-status-danger-fg' : 'text-text-heading'
+  return (
+    <Link to={to}>
+      <Card className="h-full hover:border-primary-700">
+        <p className="text-body text-text-muted">{label}</p>
+        <p className={`mt-2 text-h2 font-bold tabular-nums ${color}`}>{formatBaht(value)}</p>
+      </Card>
+    </Link>
+  )
+}
+
+function CountCard({ label, value, to, detail, tone = 'neutral' }: { label: string; value: number; to: string; detail?: string; tone?: 'neutral' | 'success' | 'warning' }) {
+  const color = tone === 'success' ? 'text-status-success-fg' : tone === 'warning' ? 'text-status-warning-fg' : 'text-text-heading'
+  return <Link to={to}><Card className="h-full hover:border-primary-700"><p className="text-body text-text-muted">{label}</p><p className={`mt-2 text-display font-bold ${color}`}>{value}</p>{detail && <p className="mt-1 text-caption text-text-muted">{detail}</p>}</Card></Link>
+}
+
+function PmSection({ assets, title, tone }: { assets: CommitteeDashboard['pm_overdue']; title: string; tone: 'danger' | 'warning' }) {
+  return <Card className={`border-l-4 ${tone === 'danger' ? 'border-l-status-danger-fg' : 'border-l-status-warning-fg'}`}>
+    <h2 className="mb-3 text-h2 font-bold text-text-heading">{title}</h2>
+    {assets.length ? <ul className="grid gap-2">{assets.map((asset) => <li key={asset.id}><Link className="flex min-h-touch flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1 hover:bg-subtle" to={`/assets/${asset.id}`}><span className="font-semibold text-text-heading">{asset.name}</span><PmBadge nextDueDate={asset.next_due_date} /></Link></li>)}</ul> : <p className="text-body text-text-muted">ไม่มีอุปกรณ์ในรายการนี้</p>}
+  </Card>
 }

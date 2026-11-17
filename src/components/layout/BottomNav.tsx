@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router'
 import { Banknote, Bell, ClipboardCheck, Home, LayoutDashboard, Menu, Wrench, Upload } from 'lucide-react'
 import { useAuth } from '../../features/auth/AuthProvider'
+import { useUnreadAnnouncements } from '../../features/announcements/useUnreadAnnouncements'
 
 const residentItems = [
   { to: '/', label: 'หน้าแรก', Icon: Home },
@@ -19,6 +20,7 @@ const committeeItems = [
 
 export function BottomNav() {
   const { roles } = useAuth()
+  const unread = useUnreadAnnouncements()
   const items = roles.includes('committee') || roles.includes('admin') ? committeeItems : residentItems
   return (
     <nav aria-label="เมนูหลัก" className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-5 border-t border-border-strong bg-white pb-[env(safe-area-inset-bottom)] shadow-nav lg:hidden">
@@ -26,6 +28,7 @@ export function BottomNav() {
         <NavLink key={to} className={({ isActive }) => `relative flex min-h-touch flex-col items-center justify-center gap-0.5 text-caption font-semibold ${isActive ? 'bg-primary-50 text-primary-700 before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-primary-700' : 'text-text-muted'}`} end={to === '/'} to={to}>
           <Icon aria-hidden="true" size={24} />
           <span>{label}</span>
+          {to === '/announcements' && unread > 0 && <span aria-label={`${unread} ประกาศใหม่`} className="absolute right-2 top-1 grid min-h-5 min-w-5 place-items-center rounded-full bg-status-danger-bg px-1 text-[11px] font-bold text-status-danger-fg">{unread > 9 ? '9+' : unread}</span>}
         </NavLink>
       ))}
     </nav>

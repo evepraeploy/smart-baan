@@ -22,6 +22,22 @@ describe('ข้อความผิดพลาดภาษาไทย', () =
     expect(toThaiError({ message: 'IDENTIFIER_REQUIRED' })).toBe(messages.identifierRequired)
   })
 
+  it('แปลงข้อผิดพลาดของเรื่องแจ้งซ่อมเป็นภาษาไทย', () => {
+    expect(toThaiError({ code: 'TICKET_NOT_FOUND' })).toBe(messages.ticketNotFound)
+    expect(toThaiError({ message: 'TOO_MANY_PHOTOS' })).toBe(messages.ticketTooManyPhotos)
+    expect(toThaiError({ code: 'FEE_REQUIRED' })).toBe(messages.ticketFeeRequired)
+    expect(toThaiError({ message: 'INVALID_TRANSITION' })).toBe(messages.ticketTransitionInvalid)
+    expect(toThaiError({ code: 'INVALID_ASSIGNEE' })).toBe(messages.invalidAssignee)
+    expect(toThaiError({ message: 'CONTRACTOR_NOT_FOUND' })).toBe(messages.contractorNotFound)
+  })
+
+  it('แปลงข้อผิดพลาดของทะเบียนอุปกรณ์และ PM', () => {
+    expect(toThaiError({ code: 'ASSET_NOT_FOUND' })).toBe(messages.assetNotFound)
+    expect(toThaiError({ message: 'ASSET_RETIRED' })).toBe(messages.assetRetired)
+    expect(toThaiError({ code: 'INVALID_DATE' })).toBe(messages.maintenanceDateInvalid)
+    expect(toThaiError({ message: 'INVALID_MAINTENANCE_KIND' })).toBe(messages.maintenanceKindInvalid)
+  })
+
   it('ไม่แสดงข้อความดิบจากระบบ', () => {
     expect(toThaiError({ message: 'Internal server error', code: '500' })).toBe(messages.generic)
   })

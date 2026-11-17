@@ -1,5 +1,5 @@
 import { Link } from 'react-router'
-import { Banknote, Bell, ClipboardList, FileText, Home, KeyRound, Settings, UserRound, Users, Wrench } from 'lucide-react'
+import { Banknote, Bell, ClipboardList, FileText, Grid3X3, HardHat, Home, KeyRound, Settings, UserRound, Users, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { QuickCallBar } from '../components/layout/QuickCallBar'
@@ -18,6 +18,8 @@ export function MorePage() {
     ...(committee ? [
       { to: '/maintenance', label: 'งานซ่อม', Icon: Wrench },
       { to: '/finance', label: 'การเงิน', Icon: Banknote },
+      { to: '/admin/payment-status', label: 'สถานะการจ่าย', Icon: Grid3X3 },
+      { to: '/admin/contractors', label: 'รายชื่อช่าง', Icon: HardHat },
     ] : []),
     { to: '/profile', label: 'โปรไฟล์', Icon: UserRound },
     ...(admin ? [
