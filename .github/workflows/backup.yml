@@ -1,0 +1,36 @@
+name: สำรองฐานข้อมูล
+
+on:
+  schedule:
+    - cron: '23 3 1 * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ดาวน์โหลดซอร์สโค้ด
+        uses: actions/checkout@v4
+      - name: ตั้งค่า Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: สำรองโครงสร้างและข้อมูล
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          mkdir -p backup
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" --schema-only -f backup/schema.sql
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" --data-only -f backup/data.sql
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 backup/schema.sql
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 backup/data.sql
+          rm backup/schema.sql backup/data.sql
+      - name: เก็บไฟล์สำรอง
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: backup/*.gpg
+          retention-days: 90

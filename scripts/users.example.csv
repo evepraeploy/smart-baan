@@ -1,0 +1,6 @@
+identifier,display_name,phone,role,house_no,password
+99/1,ลูกบ้านบ้าน 99/1,0810000001,resident,99/1,
+99/2,ลูกบ้านบ้าน 99/2,0810000002,resident,99/2,
+99/5,กรรมการบ้าน 99/5,0810000005,committee,99/5,
+committee02,กรรมการส่วนกลาง,,committee,,
+admin01,ผู้ดูแลระบบ,,admin,,

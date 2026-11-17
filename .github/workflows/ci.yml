@@ -1,0 +1,29 @@
+name: ตรวจสอบโค้ด
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ดาวน์โหลดซอร์สโค้ด
+        uses: actions/checkout@v4
+      - name: ตั้งค่า Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: ติดตั้งแพ็กเกจ
+        run: npm ci
+      - name: ตรวจรูปแบบโค้ด
+        run: npm run lint
+      - name: ตรวจ TypeScript
+        run: npm run typecheck
+      - name: ทดสอบหน่วย
+        run: npm test
+      - name: ทดสอบฐานข้อมูล
+        run: npm run test:db
+      - name: สร้างแอป
+        run: npm run build
