@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10'
 import { identifierToEmail } from '../_shared/identifier.ts'
+import { formatRecoveryCode, generateRecoveryCode } from '../_shared/recovery-code.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -9,6 +10,7 @@ const corsHeaders = {
 type ActionBody =
   | { action: 'create_user'; identifier: string; display_name: string; phone?: string; role: 'resident' | 'committee' | 'admin'; house_no?: string; password: string }
   | { action: 'reset_password'; user_id: string; password: string }
+  | { action: 'issue_recovery_code'; user_id: string }
   | { action: 'set_active'; user_id: string; is_active: boolean }
 
 function response(body: unknown, status = 200) {
@@ -109,7 +111,23 @@ Deno.serve(async (request) => {
         return response({ error: 'HOUSE_LINK_FAILED' }, 400)
       }
     }
-    return response({ user_id: created.user.id })
+    const recoveryCode = generateRecoveryCode()
+    const { error: codeError } = await service.rpc('set_recovery_code', { p_user_id: created.user.id, p_code: recoveryCode })
+    if (codeError) {
+      await service.auth.admin.deleteUser(created.user.id)
+      return response({ error: 'RECOVERY_CODE_ISSUE_FAILED' }, 400)
+    }
+    return response({ user_id: created.user.id, recovery_code: formatRecoveryCode(recoveryCode) })
+  }
+
+  if (body.action === 'issue_recovery_code') {
+    if (typeof body.user_id !== 'string') return response({ error: 'INVALID_USER_DATA' }, 400)
+    const { data: target, error: targetError } = await service.from('profiles').select('id').eq('id', body.user_id).maybeSingle()
+    if (targetError || !target) return response({ error: 'USER_NOT_FOUND' }, 404)
+    const recoveryCode = generateRecoveryCode()
+    const { error: codeError } = await service.rpc('set_recovery_code', { p_user_id: target.id, p_code: recoveryCode })
+    if (codeError) return response({ error: 'RECOVERY_CODE_ISSUE_FAILED' }, 400)
+    return response({ recovery_code: formatRecoveryCode(recoveryCode) })
   }
 
   if (body.action === 'reset_password') {

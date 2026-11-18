@@ -8,3 +8,6 @@ max_rows = 1000
 
 [functions.admin-users]
 verify_jwt = true
+
+[functions.recover-password]
+verify_jwt = false

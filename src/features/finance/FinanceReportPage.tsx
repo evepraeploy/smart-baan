@@ -56,7 +56,7 @@ export function FinanceReportPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-h1 font-bold text-text-heading">รายงานการเงิน</h1>
+          <h1 className="font-display text-h1 font-bold text-text-heading">รายงานการเงิน</h1>
           <p className="text-body text-text-muted">สรุปการเงินภาพรวมของหมู่บ้าน</p>
         </div>
         <Button disabled={!report || loading} onClick={exportCsv} variant="secondary"><Download aria-hidden="true" size={20} />ส่งออก CSV</Button>
@@ -69,7 +69,7 @@ export function FinanceReportPage() {
           </Select>
         </label>
       </Card>
-      {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
+      {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
       {loading ? <Spinner /> : report ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -78,32 +78,44 @@ export function FinanceReportPage() {
             <SummaryCard label="รายจ่ายปีนี้" value={report.year_expense} tone="danger" />
             <Card>
               <p className="text-body text-text-muted">ยอดยกมา</p>
-              <p className="mt-2 text-h2 font-bold tabular-nums text-text-heading">{formatBaht(report.opening_balance)}</p>
+              <p className="mt-2 font-display text-h2 font-bold tabular-nums text-text-heading">{formatBaht(report.opening_balance)}</p>
               <p className="mt-1 text-caption text-text-muted">{report.opening_balance_date ? `ณ ${formatDateTH(report.opening_balance_date)}` : 'ไม่ระบุวันที่'}</p>
             </Card>
           </div>
           <Card>
-            <h2 className="mb-4 text-h2 font-bold text-text-heading">สรุปรายเดือน ปี พ.ศ. {year + 543}</h2>
-            <div className="overflow-x-auto">
+            <h2 className="mb-4 font-display text-h2 font-bold text-text-heading">สรุปรายเดือน ปี พ.ศ. {year + 543}</h2>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[36rem] border-collapse text-left text-body">
-                <thead className="bg-subtle text-text-heading">
+                <thead className="bg-surface-low text-text-heading">
                   <tr><th className="p-3 font-semibold">เดือน</th><th className="p-3 text-right font-semibold">รายรับ</th><th className="p-3 text-right font-semibold">รายจ่าย</th><th className="p-3 text-right font-semibold">สุทธิ</th></tr>
                 </thead>
                 <tbody>
                   {report.months.map((month) => (
-                    <tr className="border-b border-border even:bg-subtle/60" key={month.month}>
+                    <tr className="border-b border-outline-soft even:bg-surface-low/60" key={month.month}>
                       <th className="p-3 font-medium text-text-heading">{formatMonthTH(month.month)}</th>
-                      <td className="p-3 text-right tabular-nums text-status-success-fg">{formatBaht(month.income)}</td>
-                      <td className="p-3 text-right tabular-nums text-status-danger-fg">{formatBaht(month.expense)}</td>
+                      <td className="p-3 text-right tabular-nums text-primary">{formatBaht(month.income)}</td>
+                      <td className="p-3 text-right tabular-nums text-danger">{formatBaht(month.expense)}</td>
                       <td className="p-3 text-right tabular-nums text-text-heading">{formatBaht(month.income - month.expense)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <div className="grid gap-3 md:hidden">
+              {report.months.map((month) => (
+                <section className="grid gap-3 rounded-lg border border-outline-soft bg-surface-low p-4" key={month.month}>
+                  <h3 className="font-display text-h3 font-bold text-text-heading">{formatMonthTH(month.month)}</h3>
+                  <dl className="grid grid-cols-2 gap-3">
+                    <div><dt className="text-caption text-text-muted">รายรับ</dt><dd className="text-body font-semibold tabular-nums text-primary">{formatBaht(month.income)}</dd></div>
+                    <div><dt className="text-caption text-text-muted">รายจ่าย</dt><dd className="text-body font-semibold tabular-nums text-danger">{formatBaht(month.expense)}</dd></div>
+                    <div className="col-span-2 border-t border-outline-soft pt-2"><dt className="text-caption text-text-muted">สุทธิ</dt><dd className="font-display text-h3 font-bold tabular-nums text-text-heading">{formatBaht(month.income - month.expense)}</dd></div>
+                  </dl>
+                </section>
+              ))}
+            </div>
           </Card>
           <Card>
-            <h2 className="mb-4 text-h2 font-bold text-text-heading">แยกตามหมวดหมู่</h2>
+            <h2 className="mb-4 font-display text-h2 font-bold text-text-heading">แยกตามหมวดหมู่</h2>
             {report.categories.length ? (
               <div className="grid gap-5 md:grid-cols-2">
                 {(['income', 'expense'] as const).map((type) => {
@@ -112,7 +124,7 @@ export function FinanceReportPage() {
                     <section className="grid gap-2" key={type}>
                       <h3 className="text-h3 font-semibold text-text-heading">{type === 'income' ? 'รายรับ' : 'รายจ่าย'}</h3>
                       {rows.length ? rows.map((item) => (
-                        <div className="flex min-h-touch items-center justify-between gap-3 border-b border-border py-2" key={item.category}>
+                        <div className="flex min-h-touch items-center justify-between gap-3 border-b border-outline-soft py-2" key={item.category}>
                           <span className="text-body text-text-body">{item.category}</span>
                           <span className="text-body font-semibold tabular-nums text-text-heading">{formatBaht(item.amount)}</span>
                         </div>
@@ -131,12 +143,12 @@ export function FinanceReportPage() {
 
 function SummaryCard({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'neutral' | 'success' | 'danger' }) {
   const color = tone === 'success'
-    ? 'text-status-success-fg'
-    : tone === 'danger' ? 'text-status-danger-fg' : 'text-text-heading'
+    ? 'text-primary'
+    : tone === 'danger' ? 'text-danger' : 'text-text-heading'
   return (
     <Card>
       <p className="text-body text-text-muted">{label}</p>
-      <p className={`mt-2 text-h2 font-bold tabular-nums ${color}`}>{formatBaht(value)}</p>
+      <p className={`mt-2 font-display text-h2 font-bold tabular-nums ${color}`}>{formatBaht(value)}</p>
     </Card>
   )
 }

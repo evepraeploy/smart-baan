@@ -2,17 +2,18 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { LoaderCircle } from 'lucide-react'
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'danger' | 'danger-outline' | 'quiet'
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'danger-outline' | 'quiet'
   busy?: boolean
   children: ReactNode
 }
 
 const variants = {
-  primary: 'bg-primary-700 text-white hover:bg-primary-800',
-  secondary: 'border border-primary-700 bg-white text-primary-700 hover:bg-primary-50',
-  danger: 'bg-red-700 text-white hover:bg-red-800',
-  'danger-outline': 'border border-red-700 bg-white text-red-700 hover:bg-red-50',
-  quiet: 'bg-transparent text-text-body hover:bg-subtle',
+  primary: 'bg-primary-container text-white shadow-card hover:bg-primary active:bg-primary-pressed',
+  secondary: 'bg-surface-high text-primary hover:bg-surface-highest active:bg-surface-highest',
+  outline: 'border-2 border-primary-container bg-white text-primary hover:bg-surface-low',
+  danger: 'bg-danger text-white hover:bg-danger-pressed active:bg-danger-pressed',
+  'danger-outline': 'border-2 border-danger bg-white text-danger hover:bg-tint-danger',
+  quiet: 'bg-transparent text-primary hover:bg-surface-low',
 }
 
 export function Button({
@@ -25,7 +26,7 @@ export function Button({
 }: Props) {
   return (
     <button
-      className={`inline-flex min-h-control items-center justify-center gap-2 rounded-md px-5 text-body font-semibold transition-colors disabled:cursor-not-allowed disabled:bg-subtle disabled:text-text-disabled ${variants[variant]} ${className}`}
+      className={`inline-flex min-h-control items-center justify-center gap-2 rounded-md px-6 text-[18px] leading-7 font-semibold transition duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-surface-mid disabled:text-text-disabled disabled:shadow-none ${variants[variant]} ${className}`}
       disabled={disabled || busy}
       {...props}
     >

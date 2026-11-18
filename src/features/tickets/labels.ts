@@ -1,5 +1,6 @@
-import { AlertCircle, CheckCircle2, Clock3, Wrench } from 'lucide-react'
+import { AlertCircle, CheckCircle2, CircleHelp, Clock3, Construction, Droplets, ShieldCheck, Trash2, Wrench, Zap } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import type { BillTone } from '../../lib/bill-status'
 import type { TicketCategory, TicketStatus } from './api'
 
 export const ticketStatusLabels: Record<TicketStatus, string> = {
@@ -18,12 +19,21 @@ export const ticketCategoryLabels: Record<TicketCategory, string> = {
   other: 'อื่น ๆ',
 }
 
+export const ticketCategoryIcons: Record<TicketCategory, LucideIcon> = {
+  electric: Zap,
+  plumbing: Droplets,
+  road: Construction,
+  cleaning: Trash2,
+  security: ShieldCheck,
+  other: CircleHelp,
+}
+
 export const ticketStatusStyles: Record<TicketStatus, {
   Icon: LucideIcon
-  className: string
+  tone: BillTone
 }> = {
-  pending: { Icon: Clock3, className: 'bg-status-warning-bg text-status-warning-fg' },
-  in_progress: { Icon: Wrench, className: 'bg-status-warning-bg text-status-warning-fg' },
-  done: { Icon: CheckCircle2, className: 'bg-status-success-bg text-status-success-fg' },
-  rejected: { Icon: AlertCircle, className: 'bg-status-danger-bg text-status-danger-fg' },
+  pending: { Icon: Clock3, tone: 'warning' },
+  in_progress: { Icon: Wrench, tone: 'warning' },
+  done: { Icon: CheckCircle2, tone: 'success' },
+  rejected: { Icon: AlertCircle, tone: 'danger' },
 }

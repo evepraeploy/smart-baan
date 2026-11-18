@@ -174,21 +174,21 @@ export function AnnouncementsPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-h1 font-bold text-text-heading">ประกาศ</h1>
+          <h1 className="font-display text-h1 font-bold text-text-heading">ประกาศ</h1>
           <p className="text-body text-text-muted">ข่าวสารและข้อมูลจากหมู่บ้าน</p>
         </div>
         {committee && <Button disabled={offline} onClick={openCreate}><Plus aria-hidden="true" size={20} />สร้างประกาศ</Button>}
       </div>
-      {offline && committee && <p className="text-body text-amber-800">{messages.offlineAnnouncements}</p>}
-      {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
+      {offline && committee && <p className="text-body text-secondary">{messages.offlineAnnouncements}</p>}
+      {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
       {loading ? <Spinner /> : items.length ? items.map((item) => {
         const expired = Boolean(item.expires_at && new Date(item.expires_at).getTime() <= Date.now())
         return (
-          <Card className={item.is_pinned ? 'border-amber-200 bg-amber-50' : ''} key={item.id}>
+          <Card className={item.is_pinned ? 'border-outline-soft bg-tint-warning' : ''} key={item.id}>
             <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                {item.is_pinned && <span className="inline-flex min-h-8 items-center gap-1 rounded-full border border-amber-200 bg-white px-3 text-caption font-semibold text-amber-800"><Pin aria-hidden="true" size={16} />ปักหมุด</span>}
-                {!item.is_read && <span className="rounded-full bg-primary-50 px-3 py-1 text-caption font-semibold text-primary-700">ใหม่</span>}
+                {item.is_pinned && <span className="inline-flex min-h-8 items-center gap-1.5 rounded-sm bg-tint-warning px-2.5 py-1 text-caption font-semibold text-secondary"><Pin aria-hidden="true" size={16} />ปักหมุด</span>}
+                {!item.is_read && <span className="rounded-full bg-status-success-bg px-3 py-1 text-caption font-semibold text-status-success-fg">ใหม่</span>}
                 {committee && expired && <span className="rounded-full bg-status-neutral-bg px-3 py-1 text-caption font-semibold text-status-neutral-fg">หมดอายุแล้ว</span>}
               </div>
               {committee && <div className="flex gap-2">
@@ -196,7 +196,7 @@ export function AnnouncementsPage() {
                 <Button aria-label={`ลบประกาศ ${item.title}`} className="min-w-touch px-3" disabled={offline || busy} onClick={() => void remove(item)} variant="danger-outline"><Trash2 aria-hidden="true" size={20} /></Button>
               </div>}
             </div>
-            <h2 className="text-h2 font-bold text-text-heading">{item.title}</h2>
+            <h2 className="font-display text-h2 font-bold text-text-heading">{item.title}</h2>
             <p className="mt-1 text-caption text-text-muted">ประกาศเมื่อ {formatDateTimeTH(item.created_at)}{item.expires_at ? ` · หมดอายุ ${formatDateTH(item.expires_at)}` : ''}</p>
             {item.signed_url && <img alt={`รูปประกาศ: ${item.title}`} className="mt-4 max-h-96 w-full rounded-md object-contain" src={item.signed_url} />}
             <p className="mt-4 whitespace-pre-line text-body-lg text-text-body">{item.body}</p>
@@ -228,14 +228,14 @@ export function AnnouncementsPage() {
           </Field>
           {form.imageFile && <p className="text-caption text-text-muted">{form.imageFile.name}</p>}
           <label className="flex min-h-touch items-center gap-3 text-body font-semibold text-text-heading">
-            <input checked={form.isPinned} className="size-6 accent-primary-700" onChange={(event) => setForm({ ...form, isPinned: event.target.checked })} type="checkbox" />
+            <input checked={form.isPinned} className="size-6 accent-primary-container" onChange={(event) => setForm({ ...form, isPinned: event.target.checked })} type="checkbox" />
             ปักหมุดประกาศ
           </label>
           <Field hint={form.expiresOn ? `แสดงถึง ${formatDateTH(form.expiresOn)}` : undefined} label="วันหมดอายุ (ไม่บังคับ)">
             <Input onChange={(event) => setForm({ ...form, expiresOn: event.target.value })} type="date" value={form.expiresOn} />
           </Field>
-          {error && <p aria-live="polite" className="text-body text-red-700">{error}</p>}
-          {offline && <p className="text-body text-amber-800">{messages.offlineAnnouncements}</p>}
+          {error && <p aria-live="polite" className="text-body text-danger">{error}</p>}
+          {offline && <p className="text-body text-secondary">{messages.offlineAnnouncements}</p>}
         </form>
       </Modal>
     </div>

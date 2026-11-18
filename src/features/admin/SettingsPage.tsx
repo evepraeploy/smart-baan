@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Button } from '../../components/ui/Button'
+import { StickyActionBar } from '../../components/ui/StickyActionBar'
 import { Card } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { Spinner } from '../../components/ui/Spinner'
@@ -97,18 +98,18 @@ export function SettingsPage() {
 
   if (loading) return <Spinner />
   return (
-    <div className="mx-auto grid max-w-3xl gap-5">
-      <div><h1 className="text-h1 font-bold text-text-heading">ตั้งค่าหมู่บ้าน</h1><p className="text-body text-text-muted">ข้อมูลที่ใช้แสดงในระบบและข้อมูลสำหรับชำระค่าส่วนกลาง</p></div>
+    <div className="mx-auto grid max-w-2xl gap-5">
+      <div><h1 className="font-display text-h1 font-bold text-text-heading">ตั้งค่าหมู่บ้าน</h1><p className="text-body text-text-muted">ข้อมูลที่ใช้แสดงในระบบและข้อมูลสำหรับชำระค่าส่วนกลาง</p></div>
       <Card>
         <form className="grid gap-5" noValidate onSubmit={save}>
           <Field label="ชื่อหมู่บ้าน"><Input onChange={(event) => setSettings({ ...settings, village_name: event.target.value })} required value={settings.village_name} /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="ค่าส่วนกลางต่อเดือน"><Input inputMode="decimal" min="0" onChange={(event) => setSettings({ ...settings, monthly_fee: Number(event.target.value) })} required type="number" value={settings.monthly_fee} /></Field>
-            <Field label="วันครบกำหนดชำระ"><Input max="28" min="1" onChange={(event) => setSettings({ ...settings, bill_due_day: Number(event.target.value) })} required type="number" value={settings.bill_due_day} /></Field>
+            <Field label="วันครบกำหนดชำระ"><Input enterKeyHint="done" inputMode="numeric" max="28" min="1" onChange={(event) => setSettings({ ...settings, bill_due_day: Number(event.target.value) })} required type="number" value={settings.bill_due_day} /></Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="ธนาคาร"><Input onChange={(event) => setSettings({ ...settings, bank_name: event.target.value })} value={settings.bank_name ?? ''} /></Field>
-            <Field label="เลขที่บัญชี"><Input onChange={(event) => setSettings({ ...settings, bank_account_no: event.target.value })} value={settings.bank_account_no ?? ''} /></Field>
+            <Field label="เลขที่บัญชี"><Input autoComplete="off" enterKeyHint="done" inputMode="numeric" onChange={(event) => setSettings({ ...settings, bank_account_no: event.target.value })} value={settings.bank_account_no ?? ''} /></Field>
           </div>
           <Field label="ชื่อบัญชี"><Input onChange={(event) => setSettings({ ...settings, bank_account_name: event.target.value })} value={settings.bank_account_name ?? ''} /></Field>
           <fieldset className="grid gap-3">
@@ -116,15 +117,17 @@ export function SettingsPage() {
             {settings.hotlines.map((hotline, index) => (
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]" key={`${index}-${hotline.name}`}>
                 <Field label={`ชื่อผู้ติดต่อ ${index + 1}`}><Input onChange={(event) => updateHotline(index, 'name', event.target.value)} value={hotline.name} /></Field>
-                <Field label="เบอร์โทรศัพท์"><Input onChange={(event) => updateHotline(index, 'phone', event.target.value)} value={hotline.phone} /></Field>
+                <Field label="เบอร์โทรศัพท์"><Input autoComplete="tel" enterKeyHint="done" inputMode="tel" onChange={(event) => updateHotline(index, 'phone', event.target.value)} type="tel" value={hotline.phone} /></Field>
                 <Button className="self-end" onClick={() => setSettings({ ...settings, hotlines: settings.hotlines.filter((_, currentIndex) => currentIndex !== index) })} type="button" variant="danger-outline">ลบ</Button>
               </div>
             ))}
             {settings.hotlines.length < 4 && <Button onClick={() => setSettings({ ...settings, hotlines: [...settings.hotlines, { name: '', phone: '' }] })} type="button" variant="secondary">เพิ่มเบอร์โทร</Button>}
           </fieldset>
-          {error && <p aria-live="polite" className="text-body text-red-700">{error}</p>}
-          {offline && <p className="text-body text-amber-800">{messages.offlineSettings}</p>}
-          <Button busy={busy} disabled={offline} type="submit">{labels.save}การตั้งค่า</Button>
+          {error && <p aria-live="polite" className="text-body text-danger">{error}</p>}
+          {offline && <p className="text-body text-secondary">{messages.offlineSettings}</p>}
+          <StickyActionBar>
+            <Button busy={busy} className="w-full lg:w-auto" disabled={offline} type="submit">{labels.save}การตั้งค่า</Button>
+          </StickyActionBar>
         </form>
       </Card>
     </div>

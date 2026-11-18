@@ -24,6 +24,10 @@ const errorMessages: Record<string, string> = {
   TOO_MANY_PHOTOS: messages.ticketTooManyPhotos,
   INVALID_TRANSITION: messages.ticketTransitionInvalid,
   TICKET_CLOSED: messages.ticketClosed,
+  OWN_TICKET: messages.ticketOwn,
+  RECOVERY_INVALID: messages.recoveryInvalid,
+  RECOVERY_LOCKED: messages.recoveryLocked,
+  RECOVERY_UNAVAILABLE: messages.recoveryUnavailable,
   FEE_REQUIRED: messages.ticketFeeRequired,
   EXPENSE_ALREADY_RECORDED: messages.ticketExpenseRecorded,
   INVALID_ASSIGNEE: messages.invalidAssignee,
@@ -33,6 +37,11 @@ const errorMessages: Record<string, string> = {
   ASSET_RETIRED: messages.assetRetired,
   INVALID_DATE: messages.maintenanceDateInvalid,
   INVALID_MAINTENANCE_KIND: messages.maintenanceKindInvalid,
+}
+
+export function isMissingBackendFeature(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code ?? ''
+  return ['PGRST200', 'PGRST202', 'PGRST205', '42883', '42P01'].includes(code)
 }
 
 export function toThaiError(error: unknown): string {

@@ -187,7 +187,7 @@ export function LedgerPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-h1 font-bold text-text-heading">รายรับ-รายจ่าย</h1>
+          <h1 className="font-display text-h1 font-bold text-text-heading">รายรับ-รายจ่าย</h1>
           <p className="text-body text-text-muted">{formatMonthTH(`${month}-01`)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -195,18 +195,18 @@ export function LedgerPage() {
           <Button disabled={offline} onClick={openCreate}><Plus aria-hidden="true" size={20} />เพิ่มรายการ</Button>
         </div>
       </div>
-      {offline && <p className="text-body text-amber-800">{messages.offlineFinance}</p>}
+      {offline && <p className="text-body text-secondary">{messages.offlineFinance}</p>}
       <Card className="grid gap-4 sm:grid-cols-3">
-        <div><p className="text-body text-text-muted">รายรับเดือนนี้</p><p className="text-h2 font-bold tabular-nums text-status-success-fg">{formatBaht(totals.income)}</p></div>
-        <div><p className="text-body text-text-muted">รายจ่ายเดือนนี้</p><p className="text-h2 font-bold tabular-nums text-status-danger-fg">{formatBaht(totals.expense)}</p></div>
-        <div><p className="text-body text-text-muted">สุทธิเดือนนี้</p><p className="text-h2 font-bold tabular-nums text-text-heading">{formatBaht(totals.income - totals.expense)}</p></div>
+        <div><p className="text-body text-text-muted">รายรับเดือนนี้</p><p className="font-display text-h2 font-bold tabular-nums text-primary">{formatBaht(totals.income)}</p></div>
+        <div><p className="text-body text-text-muted">รายจ่ายเดือนนี้</p><p className="font-display text-h2 font-bold tabular-nums text-danger">{formatBaht(totals.expense)}</p></div>
+        <div><p className="text-body text-text-muted">สุทธิเดือนนี้</p><p className="font-display text-h2 font-bold tabular-nums text-text-heading">{formatBaht(totals.income - totals.expense)}</p></div>
       </Card>
       <Card className="grid gap-2 sm:max-w-xs">
         <Field hint={formatMonthTH(`${month}-01`)} label="เลือกเดือน">
           <Input onChange={(event) => { if (event.target.value) setMonth(event.target.value) }} type="month" value={month} />
         </Field>
       </Card>
-      {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
+      {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
       {loading ? <Spinner /> : entries.length ? entries.map((entry) => {
         const income = entry.entry_type === 'income'
         const Icon = income ? ArrowDownLeft : ArrowUpRight
@@ -218,16 +218,16 @@ export function LedgerPage() {
               </span>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-h2 font-bold text-text-heading">{entry.category}</h2>
+                  <h2 className="font-display text-h2 font-bold text-text-heading">{entry.category}</h2>
                   <span className={`rounded-full px-3 py-1 text-caption font-semibold ${income ? 'bg-status-success-bg text-status-success-fg' : 'bg-status-danger-bg text-status-danger-fg'}`}>{income ? 'รายรับ' : 'รายจ่าย'}</span>
                 </div>
                 <p className="mt-1 text-body text-text-muted">{formatDateTH(entry.entry_date)}{entry.description ? ` · ${entry.description}` : ''}</p>
                 {entry.slip_id && <p className="mt-1 flex items-center gap-1 text-caption font-semibold text-text-muted"><LockKeyhole aria-hidden="true" size={16} />รายการจากสลิป แก้ไขไม่ได้{entry.house_no ? ` · บ้านเลขที่ ${entry.house_no}` : ''}</p>}
-                {entry.signed_url && <a className="mt-3 inline-block" href={entry.signed_url} rel="noreferrer" target="_blank"><img alt={`ใบเสร็จรายการ${entry.category}`} className="size-24 rounded-md border border-border object-cover" src={entry.signed_url} /></a>}
+                {entry.signed_url && <a className="mt-3 inline-block" href={entry.signed_url} rel="noreferrer" target="_blank"><img alt={`ใบเสร็จรายการ${entry.category}`} className="size-24 rounded-md border border-outline-soft object-cover" src={entry.signed_url} /></a>}
               </div>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 sm:flex-col sm:items-end">
-              <p className={`text-h2 font-bold tabular-nums ${income ? 'text-status-success-fg' : 'text-status-danger-fg'}`}>{formatBaht(entry.amount)}</p>
+              <p className={`font-display text-h2 font-bold tabular-nums ${income ? 'text-primary' : 'text-danger'}`}>{formatBaht(entry.amount)}</p>
               {!entry.slip_id && <div className="flex gap-2">
                 <Button aria-label={`แก้ไขรายการ ${entry.category}`} className="min-w-touch px-3" disabled={offline || busy} onClick={() => openEdit(entry)} variant="secondary"><Pencil aria-hidden="true" size={20} /></Button>
                 <Button aria-label={`ลบรายการ ${entry.category}`} className="min-w-touch px-3" disabled={offline || busy} onClick={() => void remove(entry)} variant="danger-outline"><Trash2 aria-hidden="true" size={20} /></Button>
@@ -266,7 +266,7 @@ export function LedgerPage() {
             </Select>
           </Field>
           <Field label="ยอดเงิน (บาท)">
-            <Input inputMode="decimal" min="0.01" onChange={(event) => setForm({ ...form, amount: event.target.value })} required step="0.01" type="number" value={form.amount} />
+            <Input enterKeyHint="done" inputMode="decimal" min="0.01" onChange={(event) => setForm({ ...form, amount: event.target.value })} required step="0.01" type="number" value={form.amount} />
           </Field>
           <Field hint={form.entryDate ? formatDateTH(form.entryDate) : undefined} label="วันที่">
             <Input onChange={(event) => setForm({ ...form, entryDate: event.target.value })} required type="date" value={form.entryDate} />
@@ -279,8 +279,8 @@ export function LedgerPage() {
           </Field>
           {form.imageFile && <p className="text-caption text-text-muted">{form.imageFile.name}</p>}
           {form.attachmentPath && !form.imageFile && <p className="text-caption text-text-muted">มีรูปบิลแนบอยู่แล้ว</p>}
-          {error && <p aria-live="polite" className="text-body text-red-700">{error}</p>}
-          {offline && <p className="text-body text-amber-800">{messages.offlineFinance}</p>}
+          {error && <p aria-live="polite" className="text-body text-danger">{error}</p>}
+          {offline && <p className="text-body text-secondary">{messages.offlineFinance}</p>}
         </form>
       </Modal>
     </div>

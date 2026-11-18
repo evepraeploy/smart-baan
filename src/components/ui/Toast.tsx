@@ -22,8 +22,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {items.map((item) => {
           const Icon = item.tone === 'success' ? CircleCheck : CircleX
           return (
-            <div key={item.id} className={`flex min-h-touch items-center gap-3 rounded-md border bg-white p-3 shadow-card ${item.tone === 'success' ? 'border-status-success-border text-status-success-fg' : 'border-status-danger-border text-status-danger-fg'}`}>
-              <Icon aria-hidden="true" size={22} />
+            <div key={item.id} className="flex min-h-touch items-center gap-3 rounded-lg bg-inverse-surface p-3 text-white shadow-card">
+              <Icon aria-hidden="true" className={item.tone === 'success' ? 'text-primary-fixed' : 'text-danger-container'} size={22} />
               <p className="flex-1 text-body font-semibold">{item.message}</p>
               <button aria-label="ปิดข้อความ" className="min-h-touch min-w-touch" onClick={() => dismiss(item.id)}><X size={20} /></button>
             </div>

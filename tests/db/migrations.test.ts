@@ -53,13 +53,15 @@ beforeAll(async () => {
       select string_to_array(regexp_replace(p_name, '/[^/]*$', ''), '/')
     $$;
   `)
-  if (rolesAvailable) await db.exec('grant select, insert on storage.objects to authenticated')
+  if (rolesAvailable) await db.exec('grant usage on schema storage to authenticated; grant select, insert on storage.objects to authenticated')
   await runMigration('supabase/migrations/202611170001_initial_schema.sql')
   await runMigration('supabase/migrations/202611170002_storage.sql')
   await runMigration('supabase/migrations/202611170004_password_reset_requests.sql')
   await runMigration('supabase/migrations/202611170005_finance_announcements.sql')
   await runMigration('supabase/migrations/202611170006_tickets.sql')
   await runMigration('supabase/migrations/202611170007_assets.sql')
+  await runMigration('supabase/migrations/202611180008_village_payment_summary.sql')
+  await runMigration('supabase/migrations/202611180009_community_tickets.sql')
 
   await db.exec(`
     insert into public.settings (id, village_name, monthly_fee, bill_due_day)
@@ -375,6 +377,46 @@ describe.sequential('การทำงานของ migration และ RPC �
 
     await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
     await expect(db.query(`select public.get_finance_report(2026)`)).rejects.toThrow('FORBIDDEN')
+  })
+
+  it('สรุปสถานะชำระของหมู่บ้านรวม waived เป็น paid และไม่เปิดเผยบ้านรายหลัง', async () => {
+    await db.query(`select public.generate_monthly_bills('2027-01-01')`)
+    await db.query(`update public.bills set status = 'paid' where house_id = '${houseOne}' and period = '2027-01-01'`)
+    await db.query(`update public.bills set status = 'pending_review' where house_id = '${houseTwo}' and period = '2027-01-01'`)
+    await db.query(`update public.bills set status = 'waived' where house_id = (select id from public.houses where house_no = '99/3') and period = '2027-01-01'`)
+    await db.exec(`select set_config('request.jwt.claim.sub', '${residentOne}', false)`)
+    const result = await db.query<{ get_village_payment_summary: Record<string, unknown> }>(
+      `select public.get_village_payment_summary('2027-01-01')`,
+    )
+    const summary = result.rows[0].get_village_payment_summary
+    expect(summary).toEqual({
+      total: 40,
+      paid: 2,
+      pending_review: 1,
+      unpaid: 37,
+      my_status: 'paid',
+    })
+    expect(JSON.stringify(summary)).not.toContain('house_')
+    expect(JSON.stringify(summary)).not.toContain('99/')
+
+    await db.exec(`select set_config('request.jwt.claim.sub', '${residentTwo}', false)`)
+    const residentSummary = await db.query<{ get_village_payment_summary: { my_status: string } }>(
+      `select public.get_village_payment_summary('2027-01-01')`,
+    )
+    expect(residentSummary.rows[0].get_village_payment_summary.my_status).toBe('pending_review')
+    await db.exec(`select set_config('request.jwt.claim.sub', '${committee}', false)`)
+    const committeeSummary = await db.query<{ get_village_payment_summary: { my_status: string | null } }>(
+      `select public.get_village_payment_summary('2027-01-01')`,
+    )
+    expect(committeeSummary.rows[0].get_village_payment_summary.my_status).toBeNull()
+
+    await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+    await expect(db.query(`select public.get_village_payment_summary('2027-01-01')`)).rejects.toThrow('FORBIDDEN')
+    if (rolesAvailable) {
+      await db.exec('set role anon')
+      await expect(db.query(`select public.get_village_payment_summary('2027-01-01')`)).rejects.toThrow()
+      await db.exec('reset role')
+    }
   })
 
   it('resident เขียน ledger_entries โดยตรงไม่ได้', async () => {
@@ -746,6 +788,161 @@ describe.sequential('การทำงานของ migration และ RPC �
        where action = 'link_ticket_asset' and entity_id = '${ticket.rows[0].id}'`,
     )
     expect(Number(audits.rows[0].count)).toBe(2)
+    await db.exec('reset role')
+  })
+
+  it('เปิดเผยเฉพาะข้อมูลชุมชนสำหรับเรื่องของบ้านอื่น', async () => {
+    if (!rolesAvailable) return
+    const inserted = await db.query<{ id: string }>(`
+      insert into public.tickets (house_id, reporter_id, category, title, description, status)
+      values ('${houseTwo}', '${residentTwo}', 'road', 'ถนนชำรุด', 'รายละเอียดสาธารณะ', 'in_progress')
+      returning id
+    `)
+    const ticketId = inserted.rows[0].id
+    await db.exec(`
+      insert into public.ticket_events (ticket_id, actor_id, event_type, from_status, to_status, comment)
+      values
+        ('${ticketId}', '${residentTwo}', 'created', null, 'pending', 'ความเห็นส่วนตัว'),
+        ('${ticketId}', '${committee}', 'status', 'pending', 'in_progress', 'อัปเดตส่วนตัว'),
+        ('${ticketId}', '${committee}', 'comment', null, null, 'คอมเมนต์ที่ต้องซ่อน');
+      insert into public.ticket_photos (ticket_id, path, kind, uploaded_by)
+      values ('${ticketId}', '${ticketId}/report.webp', 'report', '${residentTwo}');
+      insert into public.ticket_affected (ticket_id, house_id, user_id)
+      values ('${ticketId}', '${houseTwo}', '${residentTwo}');
+      set role authenticated;
+      select set_config('request.jwt.claim.sub', '${residentOne}', false);
+    `)
+    const listed = await db.query<{
+      id: string
+      is_mine: boolean
+      affected_count: number
+      i_am_affected: boolean
+      report_photo_count: number
+    }>(`select * from public.list_community_tickets() where id = '${ticketId}'`)
+    expect(listed.rows[0]).toMatchObject({
+      id: ticketId,
+      is_mine: false,
+      affected_count: 1,
+      i_am_affected: false,
+      report_photo_count: 1,
+    })
+    expect(Object.keys(listed.rows[0])).toEqual([
+      'id', 'category', 'title', 'status', 'created_at', 'updated_at', 'closed_at',
+      'is_mine', 'affected_count', 'i_am_affected', 'report_photo_count',
+    ])
+
+    const details = await db.query<{ get_community_ticket: Record<string, unknown> }>(
+      `select public.get_community_ticket('${ticketId}')`,
+    )
+    const residentView = details.rows[0].get_community_ticket as {
+      affected_houses: string[] | null
+      photos: { path: string; kind: string }[]
+      timeline: { to_status: string; from_status: string | null }[]
+    }
+    expect(residentView.affected_houses).toBeNull()
+    expect(residentView.photos).toEqual([{ id: expect.any(String), path: `${ticketId}/report.webp`, kind: 'report', created_at: expect.any(String) }])
+    expect(residentView.timeline).toEqual([
+      { to_status: 'pending', from_status: null, created_at: expect.any(String) },
+      { to_status: 'in_progress', from_status: 'pending', created_at: expect.any(String) },
+    ])
+    expect(Object.keys(residentView)).not.toContain('comment')
+    await db.exec('reset role')
+
+    await db.exec(`
+      set role authenticated;
+      select set_config('request.jwt.claim.sub', '${committee}', false);
+    `)
+    const committeeDetails = await db.query<{ get_community_ticket: { affected_houses: string[] } }>(
+      `select public.get_community_ticket('${ticketId}')`,
+    )
+    expect(committeeDetails.rows[0].get_community_ticket.affected_houses).toEqual(['99/2'])
+    await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+    await expect(db.query(`select * from public.list_community_tickets()`)).rejects.toThrow('FORBIDDEN')
+    await expect(db.query(`select public.get_community_ticket('${ticketId}')`)).rejects.toThrow('FORBIDDEN')
+    await db.exec('reset role')
+  })
+
+  it('สลับการแจ้งว่าเจอปัญหาได้โดยจำกัดบ้านของตนและสถานะเรื่อง', async () => {
+    if (!rolesAvailable) return
+    const openTicket = await db.query<{ id: string }>(`
+      insert into public.tickets (house_id, reporter_id, category, title, description)
+      values ('${houseTwo}', '${residentTwo}', 'other', 'ปัญหาเปิด', 'รายละเอียด')
+      returning id
+    `)
+    const closedTicket = await db.query<{ id: string }>(`
+      insert into public.tickets (house_id, reporter_id, category, title, description, status)
+      values ('${houseTwo}', '${residentTwo}', 'other', 'ปัญหาปิด', 'รายละเอียด', 'done')
+      returning id
+    `)
+    const ownTicket = await db.query<{ id: string }>(`
+      insert into public.tickets (house_id, reporter_id, category, title, description)
+      values ('${houseOne}', '${residentOne}', 'other', 'เรื่องของบ้านฉัน', 'รายละเอียด')
+      returning id
+    `)
+    await db.exec(`
+      insert into public.ticket_affected (ticket_id, house_id, user_id)
+      values ('${closedTicket.rows[0].id}', '${houseOne}', '${residentOne}');
+      set role authenticated;
+      select set_config('request.jwt.claim.sub', '${residentOne}', false);
+    `)
+    let toggled = await db.query<{ toggle_ticket_affected: { affected_count: number; i_am_affected: boolean } }>(
+      `select public.toggle_ticket_affected('${openTicket.rows[0].id}')`,
+    )
+    expect(toggled.rows[0].toggle_ticket_affected).toEqual({ affected_count: 1, i_am_affected: true })
+    toggled = await db.query(
+      `select public.toggle_ticket_affected('${openTicket.rows[0].id}')`,
+    )
+    expect(toggled.rows[0].toggle_ticket_affected).toEqual({ affected_count: 0, i_am_affected: false })
+
+    toggled = await db.query(
+      `select public.toggle_ticket_affected('${closedTicket.rows[0].id}')`,
+    )
+    expect(toggled.rows[0].toggle_ticket_affected).toEqual({ affected_count: 0, i_am_affected: false })
+    await expect(db.query(
+      `select public.toggle_ticket_affected('${closedTicket.rows[0].id}')`,
+    )).rejects.toThrow('TICKET_CLOSED')
+    await expect(db.query(
+      `select public.toggle_ticket_affected('${ownTicket.rows[0].id}')`,
+    )).rejects.toThrow('OWN_TICKET')
+    await expect(db.query(
+      `select public.toggle_ticket_affected('30000000-0000-4000-8000-000000000099')`,
+    )).rejects.toThrow('TICKET_NOT_FOUND')
+
+    await db.exec(`select set_config('request.jwt.claim.sub', '${committee}', false)`)
+    await expect(db.query(
+      `select public.toggle_ticket_affected('${openTicket.rows[0].id}')`,
+    )).rejects.toThrow('NO_HOUSE')
+    await db.exec(`select set_config('request.jwt.claim.sub', '', false)`)
+    await expect(db.query(
+      `select public.toggle_ticket_affected('${openTicket.rows[0].id}')`,
+    )).rejects.toThrow('FORBIDDEN')
+    await db.exec('reset role')
+  })
+
+  it('อนุญาตให้ลูกบ้านอ่านรูปชุมชน แต่ไม่ให้แก้ ticket_affected โดยตรง', async () => {
+    if (!rolesAvailable) return
+    const inserted = await db.query<{ id: string }>(`
+      insert into public.tickets (house_id, reporter_id, category, title, description)
+      values ('${houseTwo}', '${residentTwo}', 'other', 'รูปชุมชน', 'รายละเอียด')
+      returning id
+    `)
+    const ticketId = inserted.rows[0].id
+    await db.exec(`
+      insert into storage.objects (bucket_id, name)
+      values ('tickets', '${ticketId}/report.webp');
+      set role authenticated;
+      select set_config('request.jwt.claim.sub', '${residentOne}', false);
+    `)
+    const visibleObject = await db.query<{ count: number }>(
+      `select count(*)::int as count from storage.objects where name = '${ticketId}/report.webp'`,
+    )
+    expect(Number(visibleObject.rows[0].count)).toBe(1)
+    await expect(db.query(
+      `insert into public.ticket_affected (ticket_id, house_id) values ('${ticketId}', '${houseOne}')`,
+    )).rejects.toThrow()
+    await expect(db.query(
+      `delete from public.ticket_affected where ticket_id = '${ticketId}'`,
+    )).rejects.toThrow()
     await db.exec('reset role')
   })
 

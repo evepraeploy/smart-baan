@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { formatBaht, formatDateTH, formatDateTimeInputTH, formatDateTimeTH, formatMonthTH, parseDateTimeInputTH } from '../../src/lib/format'
+import { formatBaht, formatDateTH, formatDateTimeInputTH, formatDateTimeTH, formatMonthTH, formatTimeTH, formatWeekdayDateTH, parseDateTimeInputTH } from '../../src/lib/format'
 import { identifierToEmail, normalizePhone } from '../../src/lib/auth-identifier'
-import { getBillDisplayStatus } from '../../src/lib/bill-status'
+import { getBillDisplayStatus, getDueCountdown } from '../../src/lib/bill-status'
+import { getMobileBackFallback } from '../../src/lib/mobile-nav'
+import { getBangkokMonthUtcBounds } from '../../src/lib/date'
 
 describe('รูปแบบวันที่และจำนวนเงิน', () => {
   it('แสดงวันที่และเดือนเป็นพุทธศักราชตามเวลาไทย', () => {
     expect(formatDateTH('2026-11-25T00:00:00Z')).toContain('2569')
     expect(formatMonthTH('2026-11-01')).toContain('2569')
     expect(formatDateTimeTH('2026-11-25T07:30:00Z')).toContain('14:30 น.')
+    expect(formatTimeTH('2026-11-25T07:30:00Z')).toBe('14:30')
+    expect(formatWeekdayDateTH('2026-11-25T00:00:00Z')).toBe('วันพุธที่ 25 พฤศจิกายน 2569')
   })
 
   it('จัดรูปแบบเงินบาทสองตำแหน่ง', () => {
@@ -44,5 +48,31 @@ describe('สถานะบิล', () => {
     expect(getBillDisplayStatus('unpaid', '2026-11-25', new Date('2026-11-25T02:00:00Z')).label).toBe('รอชำระ')
     expect(getBillDisplayStatus('unpaid', '2026-11-25', new Date('2026-11-25T17:00:00Z')).label).toBe('ค้างชำระ')
     expect(getBillDisplayStatus('pending_review', '2026-11-25').label).toBe('รอตรวจสอบ')
+    expect(getBillDisplayStatus('unpaid', '2026-11-25', new Date('2026-11-25T02:00:00Z')).tone).toBe('warning')
+  })
+
+  it('แสดงจำนวนวันที่เหลือหรือเลยกำหนดตามเวลาไทย', () => {
+    const now = new Date('2026-11-25T02:00:00Z')
+    expect(getDueCountdown('2026-11-30', now)).toMatchObject({ days: 5, label: 'อีก 5 วัน', overdue: false })
+    expect(getDueCountdown('2026-11-25', now).label).toBe('ครบกำหนดวันนี้')
+    expect(getDueCountdown('2026-11-22', now)).toMatchObject({ days: 3, label: 'เลยกำหนด 3 วัน', overdue: true })
+  })
+})
+
+describe('ทางกลับบนมือถือ', () => {
+  it('เลือกเมนูเพิ่มเติมสำหรับเส้นทางที่มีในเมนูตามบทบาท', () => {
+    expect(getMobileBackFallback('/payments/history', { committee: false, hasHouse: false, admin: false })).toBe('/more')
+    expect(getMobileBackFallback('/admin/payment-status', { committee: true, hasHouse: false, admin: false })).toBe('/more')
+    expect(getMobileBackFallback('/admin/settings', { committee: true, hasHouse: false, admin: true })).toBe('/more')
+    expect(getMobileBackFallback('/repairs/new', { committee: true, hasHouse: false, admin: false })).toBe('/')
+  })
+})
+
+describe('ช่วงเดือนตามเวลาไทย', () => {
+  it('แปลงขอบเขตเดือนกรุงเทพฯ เป็น UTC รวมจุดเปลี่ยนปี', () => {
+    expect(getBangkokMonthUtcBounds('2026-01')).toEqual({
+      start: '2025-12-31T17:00:00.000Z',
+      end: '2026-01-31T17:00:00.000Z',
+    })
   })
 })

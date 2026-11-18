@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Camera, ImagePlus, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
+import { StickyActionBar } from '../../components/ui/StickyActionBar'
 import { Card } from '../../components/ui/Card'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Select } from '../../components/ui/Select'
@@ -10,13 +11,15 @@ import { useToast } from '../../components/ui/Toast'
 import { compressSlipImage, type CompressedSlip } from '../../lib/image'
 import { messages } from '../../lib/messages.th'
 import { toThaiError } from '../../lib/errors'
-import { addTicketPhotos, createTicket, uploadTicketPhoto, type TicketCategory } from './api'
+import { addTicketPhotos, createTicket, listCommunityTickets, toggleTicketAffected, uploadTicketPhoto, type CommunityTicket, type TicketCategory } from './api'
 import { ticketCategoryLabels } from './labels'
+import { useAuth } from '../auth/AuthProvider'
 
 type PhotoDraft = { id: string; compressed: CompressedSlip; preview: string }
 const categoryOrder: TicketCategory[] = ['electric', 'plumbing', 'road', 'cleaning', 'security', 'other']
 
 export function NewTicketPage() {
+  const { house } = useAuth()
   const navigate = useNavigate()
   const { showToast } = useToast()
   const offline = useOffline()
@@ -30,8 +33,31 @@ export function NewTicketPage() {
   const [compressing, setCompressing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState<CommunityTicket[]>([])
+  const [quickBusy, setQuickBusy] = useState('')
 
   useEffect(() => () => photoUrls.current.forEach((url) => URL.revokeObjectURL(url)), [])
+  useEffect(() => {
+    let active = true
+    void listCommunityTickets().then((tickets) => {
+      if (active) setSuggestions(tickets.filter((ticket) => ticket.category === category && !ticket.is_mine && ['pending', 'in_progress'].includes(ticket.status)).slice(0, 5))
+    }).catch(() => {
+      if (active) setSuggestions([])
+    })
+    return () => { active = false }
+  }, [category])
+
+  async function quickAffect(ticketId: string) {
+    setQuickBusy(ticketId)
+    try {
+      const result = await toggleTicketAffected(ticketId)
+      setSuggestions((current) => current.map((ticket) => ticket.id === ticketId ? { ...ticket, ...result } : ticket))
+    } catch (caught) {
+      setError(toThaiError(caught))
+    } finally {
+      setQuickBusy('')
+    }
+  }
 
   async function addPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -102,8 +128,8 @@ export function NewTicketPage() {
   }
 
   return (
-    <div className="grid gap-5">
-      <div><h1 className="text-h1 font-bold text-text-heading">แจ้งเรื่องใหม่</h1><p className="text-body text-text-muted">รายละเอียดจะช่วยให้กรรมการแก้ไขได้ตรงจุด</p></div>
+    <div className="mx-auto grid w-full max-w-2xl gap-5">
+      <div><h1 className="font-display text-h1 font-bold text-text-heading">แจ้งเรื่องใหม่</h1><p className="text-body text-text-muted">รายละเอียดจะช่วยให้กรรมการแก้ไขได้ตรงจุด</p></div>
       <Card>
         <form className="grid gap-4" noValidate onSubmit={submit}>
           <Field label="หมวดหมู่">
@@ -111,8 +137,24 @@ export function NewTicketPage() {
               {categoryOrder.map((item) => <option key={item} value={item}>{ticketCategoryLabels[item]}</option>)}
             </Select>
           </Field>
+          {suggestions.length > 0 && <section className="grid gap-2 rounded-lg bg-surface-low p-4">
+            <div>
+              <h2 className="font-display text-h3 font-bold text-text-heading">เรื่องที่แจ้งไว้แล้วในหมวดนี้</h2>
+              <p className="text-caption text-text-muted">ถ้าเป็นเรื่องเดียวกัน กด “ฉันก็เจอ” แทนการแจ้งซ้ำ</p>
+              {!house && <p className="text-caption text-text-muted">บัญชีนี้ยังไม่ได้ผูกกับบ้าน จึงแจ้งว่าเจอปัญหาไม่ได้</p>}
+            </div>
+            {suggestions.map((ticket) => <div className="flex min-w-0 items-center gap-2 border-t border-outline-soft pt-2" key={ticket.id}>
+              <Link className="min-w-0 flex-1" to={`/repairs/${ticket.id}`}>
+                <span className="line-clamp-2 block font-semibold text-text-heading">{ticket.title}</span>
+                <span className="text-caption text-text-muted">{ticket.affected_count} บ้าน</span>
+              </Link>
+              <Button busy={quickBusy === ticket.id} disabled={Boolean(quickBusy) || !house} onClick={() => void quickAffect(ticket.id)} type="button" variant={ticket.i_am_affected ? 'secondary' : 'outline'}>
+                {ticket.i_am_affected ? 'ยกเลิก' : 'ฉันก็เจอ'}
+              </Button>
+            </div>)}
+          </section>}
           <Field label="หัวข้อ">
-            <Input maxLength={200} onChange={(event) => setTitle(event.target.value)} required value={title} />
+            <Input enterKeyHint="next" maxLength={200} onChange={(event) => setTitle(event.target.value)} required value={title} />
           </Field>
           <Field label="รายละเอียด">
             <Textarea maxLength={5000} onChange={(event) => setDescription(event.target.value)} required value={description} />
@@ -129,18 +171,20 @@ export function NewTicketPage() {
           {photos.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {photos.map((photo) => (
               <div className="relative" key={photo.id}>
-                <img alt="ตัวอย่างรูปประกอบ" className="aspect-square w-full rounded-md border border-border object-cover" src={photo.preview} />
+                <img alt="ตัวอย่างรูปประกอบ" className="aspect-square w-full rounded-md border border-outline-soft object-cover" src={photo.preview} />
                 <p className="mt-1 text-caption text-text-muted">{(photo.compressed.compressedSize / 1024).toFixed(0)} KB</p>
-                <Button aria-label="นำรูปออก" className="absolute right-2 top-2 min-h-10 min-w-10 px-2" onClick={() => removePhoto(photo.id)} type="button" variant="danger-outline"><X aria-hidden="true" size={18} /></Button>
+                <Button aria-label="นำรูปออก" className="absolute right-2 top-2 min-h-touch min-w-touch px-2" onClick={() => removePhoto(photo.id)} type="button" variant="danger-outline"><X aria-hidden="true" size={18} /></Button>
               </div>
             ))}
           </div>}
-          {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
-          {offline && <p className="text-body text-amber-800">{messages.offlineTickets}</p>}
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button disabled={busy} onClick={() => navigate('/repairs')} type="button" variant="secondary">ยกเลิก</Button>
-            <Button busy={busy} disabled={offline || compressing} type="submit">ส่งเรื่อง</Button>
+          {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
+          {offline && <p className="text-body text-secondary">{messages.offlineTickets}</p>}
+          <div className="flex justify-end">
+            <Button className="w-full sm:w-auto" disabled={busy} onClick={() => navigate('/repairs')} type="button" variant="secondary">ยกเลิก</Button>
           </div>
+          <StickyActionBar>
+            <Button busy={busy} className="w-full lg:w-auto" disabled={offline || compressing} type="submit">ส่งเรื่อง</Button>
+          </StickyActionBar>
         </form>
       </Card>
     </div>

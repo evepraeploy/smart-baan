@@ -5,7 +5,7 @@ export function Checkbox(props: InputHTMLAttributes<HTMLInputElement>) {
     <input
       {...props}
       type="checkbox"
-      className={`size-6 accent-primary-700 ${props.className ?? ''}`}
+      className={`size-6 border-2 border-outline accent-primary-container aria-[invalid=true]:border-danger focus-visible:outline-primary ${props.className ?? ''}`}
     />
   )
 }

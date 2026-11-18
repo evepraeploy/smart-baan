@@ -92,19 +92,19 @@ export function ContractorsPage() {
   return (
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-h1 font-bold text-text-heading">รายชื่อช่างภายนอก</h1><p className="text-body text-text-muted">รายชื่ออ้างอิงสำหรับมอบหมายงานซ่อม</p></div>
+        <div><h1 className="font-display text-h1 font-bold text-text-heading">รายชื่อช่างภายนอก</h1><p className="text-body text-text-muted">รายชื่ออ้างอิงสำหรับมอบหมายงานซ่อม</p></div>
         <Button disabled={offline} onClick={() => openForm()}><Plus aria-hidden="true" size={20} />เพิ่มช่าง</Button>
       </div>
-      {offline && <p className="text-body text-amber-800">{messages.offlineTickets}</p>}
-      {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
+      {offline && <p className="text-body text-secondary">{messages.offlineTickets}</p>}
+      {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
       {loading ? <Spinner /> : contractors.length ? contractors.map((contractor) => (
         <Card className="flex flex-wrap items-center justify-between gap-3" key={contractor.id}>
           <div className="flex min-w-0 items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-700"><HardHat aria-hidden="true" size={22} /></span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-fixed text-on-primary-fixed"><HardHat aria-hidden="true" size={22} /></span>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2"><h2 className="text-h2 font-bold text-text-heading">{contractor.name}</h2><span className={`rounded-full px-3 py-1 text-caption font-semibold ${contractor.is_active ? 'bg-status-success-bg text-status-success-fg' : 'bg-status-neutral-bg text-status-neutral-fg'}`}>{contractor.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</span></div>
+              <div className="flex flex-wrap items-center gap-2"><h2 className="font-display text-h2 font-bold text-text-heading">{contractor.name}</h2><span className={`rounded-full px-3 py-1 text-caption font-semibold ${contractor.is_active ? 'bg-status-success-bg text-status-success-fg' : 'bg-status-neutral-bg text-status-neutral-fg'}`}>{contractor.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</span></div>
               {contractor.trade && <p className="text-body text-text-muted">{contractor.trade}</p>}
-              {contractor.phone && <a className="mt-1 inline-flex min-h-touch items-center gap-2 text-body font-semibold text-primary-700" href={`tel:${contractor.phone}`}><Phone aria-hidden="true" size={18} />{contractor.phone}</a>}
+              {contractor.phone && <a className="mt-1 inline-flex min-h-touch items-center gap-2 text-body font-semibold text-primary" href={`tel:${contractor.phone}`}><Phone aria-hidden="true" size={18} />{contractor.phone}</a>}
               {contractor.note && <p className="mt-1 whitespace-pre-line text-caption text-text-muted">{contractor.note}</p>}
             </div>
           </div>
@@ -124,11 +124,11 @@ export function ContractorsPage() {
       >
         <form className="grid gap-4" id="contractor-form" onSubmit={submit}>
           <Field label="ชื่อช่าง / ร้าน"><Input maxLength={200} onChange={(event) => setForm({ ...form, name: event.target.value })} required value={form.name} /></Field>
-          <Field label="เบอร์โทร"><Input onChange={(event) => setForm({ ...form, phone: event.target.value })} type="tel" value={form.phone} /></Field>
+          <Field label="เบอร์โทร"><Input autoComplete="tel" inputMode="tel" onChange={(event) => setForm({ ...form, phone: event.target.value })} type="tel" value={form.phone} /></Field>
           <Field label="ประเภทงาน"><Input onChange={(event) => setForm({ ...form, trade: event.target.value })} value={form.trade} /></Field>
           <Field label="หมายเหตุ"><Textarea onChange={(event) => setForm({ ...form, note: event.target.value })} value={form.note} /></Field>
-          <label className="flex min-h-touch items-center gap-3 text-body font-semibold text-text-heading"><input checked={form.is_active} className="size-6 accent-primary-700" onChange={(event) => setForm({ ...form, is_active: event.target.checked })} type="checkbox" />เปิดใช้งาน</label>
-          {error && <p className="text-body text-red-700">{error}</p>}
+          <label className="flex min-h-touch items-center gap-3 text-body font-semibold text-text-heading"><input checked={form.is_active} className="size-6 accent-primary-container" onChange={(event) => setForm({ ...form, is_active: event.target.checked })} type="checkbox" />เปิดใช้งาน</label>
+          {error && <p className="text-body text-danger">{error}</p>}
         </form>
       </Modal>
     </div>

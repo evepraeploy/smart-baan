@@ -6,6 +6,8 @@ import '@fontsource/sarabun/400.css'
 import '@fontsource/sarabun/500.css'
 import '@fontsource/sarabun/600.css'
 import '@fontsource/sarabun/700.css'
+import '@fontsource/ibm-plex-sans-thai-looped/600.css'
+import '@fontsource/ibm-plex-sans-thai-looped/700.css'
 import './styles/theme.css'
 import App from './App'
 import { AuthProvider } from './features/auth/AuthProvider'
@@ -25,8 +27,8 @@ function NotConfigured() {
   return (
     <main className="grid min-h-dvh place-items-center bg-canvas px-5 py-10">
       <Card className="grid max-w-lg justify-items-center gap-4 p-7 text-center">
-        <span className="grid size-16 place-items-center rounded-xl bg-primary-700 text-white"><Home size={32} /></span>
-        <h1 className="text-h1 font-bold text-text-heading">{messages.notConfiguredTitle}</h1>
+        <span className="grid size-16 place-items-center rounded-xl bg-primary-container text-white"><Home size={32} /></span>
+        <h1 className="font-display text-h1 font-bold text-text-heading">{messages.notConfiguredTitle}</h1>
         <p className="text-body-lg text-text-muted">{messages.notConfiguredBody}</p>
       </Card>
     </main>

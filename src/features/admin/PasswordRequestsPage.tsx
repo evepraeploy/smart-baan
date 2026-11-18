@@ -74,19 +74,19 @@ export function PasswordRequestsPage() {
     <div className="grid gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-h1 font-bold text-text-heading">คำขอรีเซ็ตรหัสผ่าน</h1>
+          <h1 className="font-display text-h1 font-bold text-text-heading">คำขอรีเซ็ตรหัสผ่าน</h1>
           <p className="text-body text-text-muted">ตั้งรหัสผ่านชั่วคราวหรือปิดคำขอที่ไม่ต้องดำเนินการ</p>
         </div>
         <Button onClick={() => void refresh()} variant="secondary"><RefreshCw size={20} />รีเฟรช</Button>
       </div>
-      {error && <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
-      {offline && <p className="text-body text-amber-800">{messages.offlineSettings}</p>}
+      {error && <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
+      {offline && <p className="text-body text-secondary">{messages.offlineSettings}</p>}
       {loading ? <Spinner /> : requests.length ? requests.map((request) => (
         <Card className="grid gap-4" key={request.id}>
           <div className="flex items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-50 text-primary-700"><KeyRound aria-hidden="true" size={22} /></span>
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-primary-fixed text-on-primary-fixed"><KeyRound aria-hidden="true" size={22} /></span>
             <div className="min-w-0">
-              <h2 className="text-h2 font-bold text-text-heading">{request.display_name}</h2>
+              <h2 className="font-display text-h2 font-bold text-text-heading">{request.display_name}</h2>
               <p className="break-all text-body text-text-muted">{request.login_identifier}</p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export function PasswordRequestsPage() {
             <div><dt className="font-semibold text-text-heading">ส่งคำขอเมื่อ</dt><dd className="text-text-muted">{formatDateTimeTH(request.created_at)}</dd></div>
           </dl>
           {request.note && <p className="text-body text-text-muted"><span className="font-semibold text-text-heading">หมายเหตุ: </span>{request.note}</p>}
-          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+          <div className="flex flex-wrap gap-2 border-t border-outline-soft pt-4">
             <Button busy={busy} disabled={offline} onClick={() => void resetPassword(request)}>ตั้งรหัสผ่านชั่วคราว</Button>
             <Button busy={busy} disabled={offline} onClick={() => void dismissRequest(request)} variant="danger-outline">ปิดคำขอ</Button>
           </div>

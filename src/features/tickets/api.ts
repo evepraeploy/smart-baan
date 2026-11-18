@@ -18,6 +18,27 @@ export type Ticket = {
   updated_at: string
   closed_at: string | null
   house_no: string | null
+  affected_count?: number
+}
+export type CommunityTicket = {
+  id: string
+  category: TicketCategory
+  title: string
+  status: TicketStatus
+  created_at: string
+  updated_at: string
+  closed_at: string | null
+  is_mine: boolean
+  affected_count: number
+  i_am_affected: boolean
+  report_photo_count: number
+}
+export type CommunityTicketPhoto = { id: string; path: string; kind: 'report' | 'after'; created_at: string; signed_url?: string }
+export type CommunityTicketDetail = Omit<CommunityTicket, 'report_photo_count'> & {
+  description: string
+  photos: CommunityTicketPhoto[]
+  timeline: { to_status: TicketStatus | null; from_status: TicketStatus | null; created_at: string }[]
+  affected_houses: string[] | null
 }
 export type TicketPhoto = { id: string; ticket_id: string; path: string; kind: 'report' | 'after'; created_at: string; signed_url?: string }
 export type TicketEvent = {
@@ -64,7 +85,7 @@ function mapTicket(row: JoinedTicket): Ticket {
 export async function listMyTickets(userId: string, houseId: string | null): Promise<Ticket[]> {
   const client = requireSupabase()
   let query = client.from('tickets')
-    .select('id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses(house_no)')
+    .select('id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses:houses!tickets_house_id_fkey(house_no)')
     .order('created_at', { ascending: false })
   const predicates = [`reporter_id.eq.${userId}`]
   if (houseId) predicates.push(`house_id.eq.${houseId}`)
@@ -75,18 +96,55 @@ export async function listMyTickets(userId: string, houseId: string | null): Pro
 }
 
 export async function listMaintenanceTickets(): Promise<Ticket[]> {
-  const { data, error } = await requireSupabase().from('tickets')
-    .select('id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses(house_no)')
-    .order('created_at', { ascending: true })
+  const client = requireSupabase()
+  const [ticketsResult, affectedResult] = await Promise.all([
+    client.from('tickets')
+      .select('id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses:houses!tickets_house_id_fkey(house_no)')
+      .order('created_at', { ascending: true }),
+    client.from('ticket_affected').select('ticket_id'),
+  ])
+  if (ticketsResult.error) throw ticketsResult.error
+  const affectedCounts = new Map<string, number>()
+  for (const row of affectedResult.error ? [] : (affectedResult.data ?? []) as { ticket_id: string }[]) {
+    affectedCounts.set(row.ticket_id, (affectedCounts.get(row.ticket_id) ?? 0) + 1)
+  }
+  return ((ticketsResult.data ?? []) as unknown as JoinedTicket[]).map((row) => ({
+    ...mapTicket(row),
+    affected_count: affectedCounts.get(row.id) ?? 0,
+  }))
+}
+
+export async function listCommunityTickets(): Promise<CommunityTicket[]> {
+  const { data, error } = await requireSupabase().rpc('list_community_tickets')
   if (error) throw error
-  return ((data ?? []) as unknown as JoinedTicket[]).map(mapTicket)
+  return (data ?? []) as CommunityTicket[]
+}
+
+export async function getCommunityTicket(id: string): Promise<CommunityTicketDetail> {
+  const client = requireSupabase()
+  const { data, error } = await client.rpc('get_community_ticket', { p_id: id })
+  if (error) throw error
+  const result = data as unknown as CommunityTicketDetail
+  if (!result || typeof result !== 'object') throw new Error(messages.ticketNotFound)
+  if (!result.photos.length) return result
+  const { data: signed, error: signedError } = await client.storage.from('tickets')
+    .createSignedUrls(result.photos.map((photo) => photo.path), 600)
+  if (signedError) throw signedError
+  const urls = new Map((signed ?? []).map((item) => [item.path, item.signedUrl ?? undefined]))
+  return { ...result, photos: result.photos.map((photo) => ({ ...photo, signed_url: urls.get(photo.path) })) }
+}
+
+export async function toggleTicketAffected(id: string): Promise<{ affected_count: number; i_am_affected: boolean }> {
+  const { data, error } = await requireSupabase().rpc('toggle_ticket_affected', { p_ticket_id: id })
+  if (error) throw error
+  return data as { affected_count: number; i_am_affected: boolean }
 }
 
 export async function getTicket(id: string, userId: string, committee: boolean): Promise<TicketDetails> {
   const client = requireSupabase()
   const ticketSelect = committee
-    ? 'id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,asset_id,assets(id,name),houses(house_no)'
-    : 'id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses(house_no)'
+    ? 'id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,asset_id,assets(id,name),houses:houses!tickets_house_id_fkey(house_no)'
+    : 'id,house_id,reporter_id,category,title,description,status,assignee_id,contractor_name,created_at,updated_at,closed_at,houses:houses!tickets_house_id_fkey(house_no)'
   const { data: ticketData, error: ticketError } = await client.from('tickets')
     .select(ticketSelect)
     .eq('id', id)

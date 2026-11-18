@@ -1,46 +1,45 @@
-import { useEffect, useState } from 'react'
-import { Phone } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { Phone, ShieldCheck } from 'lucide-react'
+import { Card } from '../ui/Card'
+import { IconTile } from '../ui/IconTile'
+import { useHotlines, type Hotline } from './useHotlines'
 
-type Hotline = { name: string; phone: string }
+export function HotlineList({ hotlines }: { hotlines: Hotline[] }) {
+  return (
+    <div className="grid gap-3">
+      {hotlines.map((hotline) => {
+        const emergency = hotline.name.includes('รปภ.')
+        const Icon = emergency ? ShieldCheck : Phone
+        return (
+          <div className="flex min-w-0 items-center gap-3 rounded-lg bg-surface-low p-3 sm:p-4" key={`${hotline.name}-${hotline.phone}`}>
+            <IconTile icon={Icon} size="M" tone={emergency ? 'danger' : 'neutral'} />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-h3 font-bold text-text-heading">{hotline.name}</h3>
+              <p className="text-body text-text-muted">{hotline.phone}</p>
+            </div>
+            <a
+              className="inline-flex min-h-touch min-w-touch items-center justify-center gap-2 rounded-md bg-primary-container px-4 text-[18px] leading-7 font-semibold text-white shadow-card transition duration-150 ease-out hover:bg-primary active:scale-[0.98] active:bg-primary-pressed"
+              href={`tel:${hotline.phone}`}
+            >
+              <Phone aria-hidden="true" size={20} />
+              โทร
+            </a>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-export function QuickCallBar() {
-  const [hotlines, setHotlines] = useState<Hotline[]>([])
-  useEffect(() => {
-    if (!supabase) return
-    void supabase.from('settings').select('hotlines').eq('id', 1).maybeSingle().then(({ data }) => {
-      const entries = Array.isArray(data?.hotlines) ? data.hotlines : []
-      setHotlines(entries.filter((entry): entry is Hotline => (
-        typeof entry === 'object'
-        && entry !== null
-        && 'name' in entry
-        && 'phone' in entry
-        && typeof entry.name === 'string'
-        && typeof entry.phone === 'string'
-      )).slice(0, 4))
-    })
-  }, [])
-
+export function QuickCallBar({ id = 'hotlines' }: { id?: string }) {
+  const hotlines = useHotlines()
   if (!hotlines.length) return null
   return (
-    <section className="grid gap-3">
-      <h2 className="text-h2 font-bold text-text-heading">โทรด่วน</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {hotlines.map((hotline) => {
-          const emergency = hotline.name.includes('รปภ.')
-          return (
-            <a
-              className={`flex min-h-control items-center gap-3 rounded-md border bg-white px-4 font-semibold ${emergency ? 'border-amber-700 text-amber-700' : 'border-primary-700 text-primary-700'}`}
-              href={`tel:${hotline.phone}`}
-              key={`${hotline.name}-${hotline.phone}`}
-            >
-              <Phone aria-hidden="true" size={21} />
-              <span className="flex-1">{hotline.name}<span className="block text-caption font-normal text-text-muted">{hotline.phone}</span></span>
-              <span>โทร</span>
-            </a>
-          )
-        })}
+    <Card className="grid scroll-mt-24 gap-3" id={id}>
+      <div className="flex items-center gap-3">
+        <IconTile icon={ShieldCheck} size="M" tone="danger" />
+        <h2 className="font-display text-h2 font-semibold text-text-heading">ติดต่อด่วน</h2>
       </div>
-    </section>
+      <HotlineList hotlines={hotlines} />
+    </Card>
   )
 }

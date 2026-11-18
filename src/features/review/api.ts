@@ -1,5 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import { messages } from '../../lib/messages.th'
+import { getBangkokMonthUtcBounds } from '../../lib/date'
+import { signSlipUrls, type SlipRecord } from '../payments/slipsApi'
 
 export type PendingSlip = {
   id: string
@@ -15,6 +17,56 @@ export type PendingSlip = {
   periods: string[]
   duplicate_count: number
   signed_url?: string
+}
+
+export type ReviewedSlip = SlipRecord & {
+  house_no: string
+  periods: string[]
+  reviewed_at: string | null
+}
+
+export async function listReviewedSlips(month: string): Promise<ReviewedSlip[]> {
+  if (!supabase) throw new Error(messages.generic)
+  const { start, end } = getBangkokMonthUtcBounds(month)
+  const { data, error } = await supabase.from('slips')
+    .select('id,status,reject_reason,amount,transferred_at,created_at,file_path,reviewed_at,houses(house_no),slip_bills(bills(period))')
+    .in('status', ['approved', 'rejected'])
+    .gte('created_at', start)
+    .lt('created_at', end)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as {
+    id: string
+    status: SlipRecord['status']
+    reject_reason: string | null
+    amount: number
+    transferred_at: string
+    created_at: string
+    file_path: string
+    reviewed_at: string | null
+    houses: { house_no: string } | null
+    slip_bills: { bills: { period: string } | null }[] | null
+  }[]
+  const records = rows.map((row) => ({
+    slip: {
+      id: row.id,
+      status: row.status,
+      reject_reason: row.reject_reason,
+      amount: row.amount,
+      transferred_at: row.transferred_at,
+      created_at: row.created_at,
+      file_path: row.file_path,
+    } satisfies SlipRecord,
+    house_no: row.houses?.house_no ?? '—',
+    periods: Array.from(new Set((row.slip_bills ?? [])
+      .map((link) => link.bills?.period)
+      .filter((period): period is string => Boolean(period))))
+      .sort((a, b) => b.localeCompare(a)),
+    reviewed_at: row.reviewed_at,
+  }))
+  const signed = await signSlipUrls(records.map((record) => record.slip))
+  return records.map((record, index) => ({ ...signed[index], house_no: record.house_no, periods: record.periods, reviewed_at: record.reviewed_at }))
 }
 
 export async function listPendingSlips(): Promise<PendingSlip[]> {

@@ -36,6 +36,20 @@ function identifierToEmail(identifier) {
   return `u-${slug}@village.internal`
 }
 
+function generateRecoveryCode() {
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  const limit = 256 - (256 % alphabet.length)
+  let code = ''
+  while (code.length < 10) {
+    for (const byte of randomBytes(16)) {
+      if (byte >= limit) continue
+      code += alphabet[byte % alphabet.length]
+      if (code.length === 10) break
+    }
+  }
+  return code
+}
+
 const inputPath = resolve(process.argv[2] ?? 'scripts/users.example.csv')
 const lines = createInterface({ input: createReadStream(inputPath), crlfDelay: Infinity })
 const rows = []
@@ -45,7 +59,7 @@ for await (const line of lines) {
 if (rows.length < 2) throw new Error('ไม่พบข้อมูลผู้ใช้ในไฟล์ CSV')
 const [headers, ...records] = rows
 const client = createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
-const results = [['identifier', 'display_name', 'role', 'house_no', 'password', 'result']]
+const results = [['identifier', 'display_name', 'role', 'house_no', 'password', 'recovery_code', 'result']]
 
 for (const values of records) {
   const record = Object.fromEntries(headers.map((header, index) => [header.trim(), (values[index] ?? '').trim()]))
@@ -56,7 +70,7 @@ for (const values of records) {
     email_confirm: true,
   })
   if (authError || !authData.user) {
-    results.push([record.identifier, record.display_name, record.role, record.house_no, password, 'สร้างบัญชีไม่สำเร็จ'])
+    results.push([record.identifier, record.display_name, record.role, record.house_no, password, '', 'สร้างบัญชีไม่สำเร็จ'])
     continue
   }
 
@@ -65,7 +79,7 @@ for (const values of records) {
     const { data: house, error: houseError } = await client.from('houses').select('id').eq('house_no', record.house_no).maybeSingle()
     if (houseError || !house) {
       await client.auth.admin.deleteUser(authData.user.id)
-      results.push([record.identifier, record.display_name, record.role, record.house_no, password, 'ไม่พบบ้านเลขที่'])
+      results.push([record.identifier, record.display_name, record.role, record.house_no, password, '', 'ไม่พบบ้านเลขที่'])
       continue
     }
     houseId = house.id
@@ -83,10 +97,17 @@ for (const values of records) {
     : { error: null }
   if (profileError || roleError || membership.error) {
     await client.auth.admin.deleteUser(authData.user.id)
-    results.push([record.identifier, record.display_name, record.role, record.house_no, password, 'บันทึกข้อมูลไม่สำเร็จ'])
+    results.push([record.identifier, record.display_name, record.role, record.house_no, password, '', 'บันทึกข้อมูลไม่สำเร็จ'])
     continue
   }
-  results.push([record.identifier, record.display_name, record.role, record.house_no, password, 'สำเร็จ'])
+  const recoveryCode = generateRecoveryCode()
+  const { error: recoveryError } = await client.rpc('set_recovery_code', { p_user_id: authData.user.id, p_code: recoveryCode })
+  if (recoveryError) {
+    await client.auth.admin.deleteUser(authData.user.id)
+    results.push([record.identifier, record.display_name, record.role, record.house_no, password, '', 'บันทึกรหัสกู้คืนไม่สำเร็จ'])
+    continue
+  }
+  results.push([record.identifier, record.display_name, record.role, record.house_no, password, `${recoveryCode.slice(0, 5)}-${recoveryCode.slice(5)}`, 'สำเร็จ'])
 }
 
 const output = results.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n')

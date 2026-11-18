@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
-import { Camera, ImagePlus, Plus, Receipt, Send, X } from 'lucide-react'
+import { Camera, Hand, ImagePlus, Plus, Receipt, Send, Users, X } from 'lucide-react'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
+import { IconTile } from '../../components/ui/IconTile'
+import { PhotoViewer } from '../../components/slips/PhotoViewer'
 import { Field, Input, Textarea } from '../../components/ui/Field'
 import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
@@ -12,27 +14,30 @@ import { useToast } from '../../components/ui/Toast'
 import { compressSlipImage, type CompressedSlip } from '../../lib/image'
 import { formatBaht, formatDateTimeInputTH, formatDateTimeTH, parseDateTimeInputTH } from '../../lib/format'
 import { messages } from '../../lib/messages.th'
-import { toThaiError } from '../../lib/errors'
+import { isMissingBackendFeature, toThaiError } from '../../lib/errors'
 import { useAuth } from '../auth/AuthProvider'
 import {
   addTicketComment,
   addTicketPhotos,
   assignTicket,
+  getCommunityTicket,
   getTicket,
   linkTicketAsset,
   listCommitteeMembers,
   listContractors,
   saveContractor,
   updateTicketStatus,
+  toggleTicketAffected,
   uploadTicketPhoto,
   type CommitteeMember,
+  type CommunityTicketDetail,
   type Contractor,
   type TicketDetails,
   type TicketEvent,
   type TicketStatus,
 } from './api'
 import { listAssets, type Asset } from '../assets/api'
-import { ticketCategoryLabels, ticketStatusLabels } from './labels'
+import { ticketCategoryIcons, ticketCategoryLabels, ticketStatusLabels } from './labels'
 import { TicketStatusBadge } from './TicketListPage'
 
 type PhotoDraft = { id: string; compressed: CompressedSlip; preview: string }
@@ -53,6 +58,7 @@ export function TicketDetailPage() {
   const managementMode = committee && location.pathname.startsWith('/maintenance/')
   const userId = session?.user.id
   const [details, setDetails] = useState<TicketDetails | null>(null)
+  const [communityDetails, setCommunityDetails] = useState<CommunityTicketDetail | null>(null)
   const [members, setMembers] = useState<CommitteeMember[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [assets, setAssets] = useState<Asset[]>([])
@@ -80,6 +86,16 @@ export function TicketDetailPage() {
     }
     setLoading(true)
     try {
+      const community = await getCommunityTicket(id).catch((caught: unknown) => {
+        if (isMissingBackendFeature(caught)) return null
+        throw caught
+      })
+      setCommunityDetails(community)
+      if (community && !committee && !community.is_mine) {
+        setDetails(null)
+        setError('')
+        return
+      }
       const result = await getTicket(id, userId, committee)
       setDetails(result)
       setLinkedAssetId(result.linkedAsset?.id ?? '')
@@ -225,7 +241,10 @@ export function TicketDetailPage() {
   }
 
   if (loading) return <Spinner />
-  if (!details) return <p aria-live="polite" className="rounded-md bg-red-50 p-3 text-body text-red-700">{error || messages.ticketNotFound}</p>
+  if (!committee && communityDetails && !communityDetails.is_mine) {
+    return <CommunityTicketView key={communityDetails.id} ticket={communityDetails} />
+  }
+  if (!details) return <p aria-live="polite" className="rounded-md bg-tint-danger p-3 text-body text-danger">{error || messages.ticketNotFound}</p>
   const { ticket, photos, events, job } = details
   return (
     <div className="grid gap-5">
@@ -233,23 +252,32 @@ export function TicketDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-caption text-text-muted">{ticket.house_no ? `บ้านเลขที่ ${ticket.house_no} · ` : ''}{ticketCategoryLabels[ticket.category]}</p>
-            <h1 className="mt-1 text-h1 font-bold text-text-heading">{ticket.title}</h1>
+            <h1 className="mt-1 font-display text-h1 font-bold text-text-heading">{ticket.title}</h1>
           </div>
           <TicketStatusBadge status={ticket.status} />
         </div>
         <p className="mt-2 text-caption text-text-muted">แจ้งเมื่อ {formatDateTimeTH(ticket.created_at)}</p>
         <p className="mt-4 whitespace-pre-line text-body-lg text-text-body">{ticket.description}</p>
         {ticket.contractor_name && <p className="mt-3 text-body font-semibold text-text-heading">ผู้รับงาน: {ticket.contractor_name}</p>}
-        {error && <p aria-live="polite" className="mt-4 rounded-md bg-red-50 p-3 text-body text-red-700">{error}</p>}
+        {error && <p aria-live="polite" className="mt-4 rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
       </Card>
+
+      {managementMode && communityDetails && (
+        <Card>
+          <h2 className="font-display text-h2 font-bold text-text-heading">บ้านที่เจอปัญหานี้ {communityDetails.affected_count} บ้าน</h2>
+          {communityDetails.affected_houses?.length
+            ? <ul className="mt-3 flex flex-wrap gap-2">{communityDetails.affected_houses.map((houseNo) => <li className="rounded-full bg-surface-low px-3 py-1 text-body text-text-body" key={houseNo}>{houseNo}</li>)}</ul>
+            : <p className="mt-2 text-body text-text-muted">ยังไม่มีบ้านแจ้งว่าเจอปัญหานี้</p>}
+        </Card>
+      )}
 
       {photos.length > 0 && (
         <Card>
-          <h2 className="mb-3 text-h2 font-bold text-text-heading">รูปประกอบเรื่องและหลังซ่อม</h2>
+          <h2 className="mb-3 font-display text-h2 font-bold text-text-heading">รูปประกอบเรื่องและหลังซ่อม</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {photos.map((photo) => (
               <a className="grid gap-1" href={photo.signed_url} key={photo.id} rel="noreferrer" target="_blank">
-                {photo.signed_url && <img alt={photo.kind === 'report' ? 'รูปประกอบเรื่อง' : 'รูปหลังซ่อม'} className="aspect-square w-full rounded-md border border-border object-cover" src={photo.signed_url} />}
+                {photo.signed_url && <img alt={photo.kind === 'report' ? 'รูปประกอบเรื่อง' : 'รูปหลังซ่อม'} className="aspect-square w-full rounded-md border border-outline-soft object-cover" src={photo.signed_url} />}
                 <span className="text-caption font-semibold text-text-muted">{photo.kind === 'report' ? 'รูปประกอบเรื่อง' : 'รูปหลังซ่อม'}</span>
               </a>
             ))}
@@ -259,7 +287,7 @@ export function TicketDetailPage() {
 
       {managementMode && (
         <Card>
-          <h2 className="mb-4 text-h2 font-bold text-text-heading">ผู้รับผิดชอบและนัดหมาย</h2>
+          <h2 className="mb-4 font-display text-h2 font-bold text-text-heading">ผู้รับผิดชอบและนัดหมาย</h2>
           <form className="grid gap-4" onSubmit={saveAssignment}>
             <Field label="กรรมการผู้รับผิดชอบ">
               <Select onChange={(event) => setAssigneeId(event.target.value)} value={assigneeId}>
@@ -278,11 +306,11 @@ export function TicketDetailPage() {
               <Input onChange={(event) => setAppointmentAt(event.target.value)} type="datetime-local" value={appointmentAt} />
             </Field>
             <Field label="ค่าจ้าง (บาท, ไม่บังคับ)">
-              <Input min="0" onChange={(event) => setFee(event.target.value)} step="0.01" type="number" value={fee} />
+              <Input enterKeyHint="done" inputMode="decimal" min="0" onChange={(event) => setFee(event.target.value)} step="0.01" type="number" value={fee} />
             </Field>
             <Button busy={busy} disabled={offline || ticket.status === 'done' || ticket.status === 'rejected'} type="submit">บันทึกการมอบหมาย</Button>
           </form>
-          {job?.contractor?.phone && <a className="mt-3 inline-flex min-h-touch items-center text-body font-semibold text-primary-700" href={`tel:${job.contractor.phone}`}>โทร {job.contractor.phone}</a>}
+          {job?.contractor?.phone && <a className="mt-3 inline-flex min-h-touch items-center text-body font-semibold text-primary" href={`tel:${job.contractor.phone}`}>โทร {job.contractor.phone}</a>}
           {job?.fee != null && <p className="mt-2 text-body text-text-muted">ค่าจ้าง: {formatBaht(job.fee)}</p>}
           {job?.ledger_entry_id && <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-status-success-bg px-3 py-2 text-caption font-semibold text-status-success-fg"><Receipt aria-hidden="true" size={16} />บันทึกเป็นรายจ่ายแล้ว</p>}
         </Card>
@@ -290,7 +318,7 @@ export function TicketDetailPage() {
 
       {managementMode && (
         <Card>
-          <h2 className="mb-3 text-h2 font-bold text-text-heading">อุปกรณ์ที่เกี่ยวข้อง</h2>
+          <h2 className="mb-3 font-display text-h2 font-bold text-text-heading">อุปกรณ์ที่เกี่ยวข้อง</h2>
           <Field label="เลือกอุปกรณ์ส่วนกลาง">
             <Select disabled={offline || busy} onChange={(event) => void changeLinkedAsset(event.target.value)} value={linkedAssetId}>
               <option value="">ไม่เชื่อมกับอุปกรณ์</option>
@@ -298,13 +326,13 @@ export function TicketDetailPage() {
               {details.linkedAsset && !assets.some((asset) => asset.id === details.linkedAsset?.id) && <option value={details.linkedAsset.id}>{details.linkedAsset.name} (ไม่พบในทะเบียน)</option>}
             </Select>
           </Field>
-          {details.linkedAsset && <Link className="mt-2 inline-flex min-h-touch items-center text-body font-semibold text-primary-700" to={`/assets/${details.linkedAsset.id}`}>{details.linkedAsset.name}</Link>}
+          {details.linkedAsset && <Link className="mt-2 inline-flex min-h-touch items-center text-body font-semibold text-primary" to={`/assets/${details.linkedAsset.id}`}>{details.linkedAsset.name}</Link>}
         </Card>
       )}
 
       {managementMode && nextStatuses[ticket.status].length > 0 && (
         <Card>
-          <h2 className="mb-3 text-h2 font-bold text-text-heading">ดำเนินการ</h2>
+          <h2 className="mb-3 font-display text-h2 font-bold text-text-heading">ดำเนินการ</h2>
           <div className="flex flex-wrap gap-2">
             {ticket.status === 'pending' && <Button disabled={offline || busy} onClick={async () => {
               setBusy(true)
@@ -318,10 +346,10 @@ export function TicketDetailPage() {
       )}
 
       <Card>
-        <h2 className="mb-4 text-h2 font-bold text-text-heading">ความคืบหน้า</h2>
+        <h2 className="mb-4 font-display text-h2 font-bold text-text-heading">ความคืบหน้า</h2>
         <ol className="grid gap-4">
           {events.map((event) => (
-            <li className="flex gap-3 border-l-2 border-primary-200 pl-4" key={event.id}>
+            <li className="flex gap-3 border-l-2 border-primary-container pl-4" key={event.id}>
               <span className="min-w-0 flex-1">
                 <span className="block text-body font-semibold text-text-heading">{event.comment || eventLabel(event.event_type)}</span>
                 <span className="block text-caption text-text-muted">{event.actor_name} · {formatDateTimeTH(event.created_at)}</span>
@@ -362,20 +390,20 @@ export function TicketDetailPage() {
               </Field>
               <Field label="รูปหลังซ่อม (ไม่บังคับ)">
                 <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex min-h-control cursor-pointer items-center gap-2 rounded-md border border-primary-700 px-4 font-semibold text-primary-700"><Camera aria-hidden="true" size={18} />ถ่ายรูป<input accept="image/*" capture="environment" className="sr-only" onChange={(event) => void captureAfterPhoto(event)} type="file" /></label>
-                  <label className="inline-flex min-h-control cursor-pointer items-center gap-2 rounded-md border border-primary-700 px-4 font-semibold text-primary-700"><ImagePlus aria-hidden="true" size={18} />เลือกจากอัลบั้ม<input accept="image/*" className="sr-only" onChange={(event) => void captureAfterPhoto(event)} type="file" /></label>
+                  <label className="inline-flex min-h-control cursor-pointer items-center gap-2 rounded-md border border-primary-container px-4 font-semibold text-primary"><Camera aria-hidden="true" size={18} />ถ่ายรูป<input accept="image/*" capture="environment" className="sr-only" onChange={(event) => void captureAfterPhoto(event)} type="file" /></label>
+                  <label className="inline-flex min-h-control cursor-pointer items-center gap-2 rounded-md border border-primary-container px-4 font-semibold text-primary"><ImagePlus aria-hidden="true" size={18} />เลือกจากอัลบั้ม<input accept="image/*" className="sr-only" onChange={(event) => void captureAfterPhoto(event)} type="file" /></label>
                 </div>
               </Field>
-              {afterPhotos.map((photo) => <div className="flex items-center gap-3" key={photo.id}><img alt="ตัวอย่างรูปหลังซ่อม" className="size-16 rounded object-cover" src={photo.preview} /><Button aria-label="นำรูปออก" className="min-w-10 px-2" onClick={() => {
+              {afterPhotos.map((photo) => <div className="flex items-center gap-3" key={photo.id}><img alt="ตัวอย่างรูปหลังซ่อม" className="size-16 rounded object-cover" src={photo.preview} /><Button aria-label="นำรูปออก" className="min-h-touch min-w-touch px-2" onClick={() => {
                 URL.revokeObjectURL(photo.preview)
                 afterPhotoUrls.current = afterPhotoUrls.current.filter((url) => url !== photo.preview)
                 setAfterPhotos((current) => current.filter((item) => item.id !== photo.id))
               }} type="button" variant="danger-outline"><X size={18} /></Button></div>)}
               <label className="flex min-h-touch items-center gap-3 text-body font-semibold text-text-heading">
-                <input checked={recordExpense} className="size-6 accent-primary-700" onChange={(event) => setRecordExpense(event.target.checked)} type="checkbox" />
+                <input checked={recordExpense} className="size-6 accent-primary-container" onChange={(event) => setRecordExpense(event.target.checked)} type="checkbox" />
                 บันทึกค่าจ้างเป็นรายจ่าย
               </label>
-              {error && <p aria-live="polite" className="text-body text-red-700">{error}</p>}
+              {error && <p aria-live="polite" className="text-body text-danger">{error}</p>}
             </>
           )}
         </form>
@@ -395,7 +423,7 @@ export function TicketDetailPage() {
       >
         <form className="grid gap-4" id="contractor-inline-form" onSubmit={addContractor}>
           <Field label="ชื่อช่าง / ร้าน"><Input maxLength={200} onChange={(event) => setContractorForm({ ...contractorForm, name: event.target.value })} required value={contractorForm.name} /></Field>
-          <Field label="เบอร์โทร"><Input onChange={(event) => setContractorForm({ ...contractorForm, phone: event.target.value })} type="tel" value={contractorForm.phone} /></Field>
+          <Field label="เบอร์โทร"><Input autoComplete="tel" inputMode="tel" onChange={(event) => setContractorForm({ ...contractorForm, phone: event.target.value })} type="tel" value={contractorForm.phone} /></Field>
           <Field label="ประเภทงาน"><Input onChange={(event) => setContractorForm({ ...contractorForm, trade: event.target.value })} value={contractorForm.trade} /></Field>
           <Field label="หมายเหตุ"><Textarea onChange={(event) => setContractorForm({ ...contractorForm, note: event.target.value })} value={contractorForm.note} /></Field>
         </form>
@@ -413,4 +441,77 @@ function eventLabel(type: TicketEvent['event_type']): string {
     photo: 'แนบรูป',
     expense: 'บันทึกค่าใช้จ่ายแล้ว',
   }[type]
+}
+
+function CommunityTicketView({ ticket: initialTicket }: { ticket: CommunityTicketDetail }) {
+  const { house } = useAuth()
+  const [ticket, setTicket] = useState(initialTicket)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [viewingPhoto, setViewingPhoto] = useState<{ src: string; alt: string } | null>(null)
+  const closePhotoViewer = useCallback(() => setViewingPhoto(null), [])
+  const closed = ticket.status === 'done' || ticket.status === 'rejected'
+  const toggle = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      const result = await toggleTicketAffected(ticket.id)
+      setTicket((current) => ({ ...current, ...result }))
+    } catch (caught) { setError(toThaiError(caught)) }
+    finally { setBusy(false) }
+  }
+  const photoSection = (kind: 'report' | 'after', title: string) => {
+    const photos = ticket.photos.filter((photo) => photo.kind === kind)
+    if (!photos.length) return null
+    return (
+      <Card key={kind}>
+        <h2 className="mb-3 font-display text-h2 font-bold text-text-heading">{title}</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {photos.map((photo) => <button className="grid gap-1 text-left" key={photo.id} onClick={() => photo.signed_url && setViewingPhoto({ src: photo.signed_url, alt: title })} type="button">
+            {photo.signed_url ? <img alt={title} className="aspect-square w-full rounded-md object-cover" src={photo.signed_url} /> : <span className="grid aspect-square place-items-center rounded-md bg-surface-low text-text-muted">ดูรูปไม่ได้</span>}
+            <span className="text-caption font-semibold text-text-muted">{title}</span>
+          </button>)}
+        </div>
+      </Card>
+    )
+  }
+  return (
+    <div className="grid gap-5">
+      <Card>
+        <div className="flex items-start gap-3">
+          <IconTile icon={ticketCategoryIcons[ticket.category]} size="M" tone="secondary" />
+          <div className="min-w-0 flex-1">
+            <p className="text-caption text-text-muted">{ticketCategoryLabels[ticket.category]}</p>
+            <h1 className="mt-1 break-words font-display text-h1 font-bold text-text-heading">{ticket.title}</h1>
+          </div>
+          <TicketStatusBadge status={ticket.status} />
+        </div>
+        <dl className="mt-4 grid gap-1 text-caption text-text-muted sm:grid-cols-2">
+          <div><dt className="inline">แจ้งเมื่อ </dt><dd className="inline">{formatDateTimeTH(ticket.created_at)}</dd></div>
+          <div><dt className="inline">อัปเดตเมื่อ </dt><dd className="inline">{formatDateTimeTH(ticket.updated_at)}</dd></div>
+          {ticket.closed_at && <div><dt className="inline">ปิดเมื่อ </dt><dd className="inline">{formatDateTimeTH(ticket.closed_at)}</dd></div>}
+        </dl>
+        <p className="mt-4 whitespace-pre-line text-body-lg text-text-body">{ticket.description}</p>
+      </Card>
+      {photoSection('report', 'รูปประกอบเรื่อง')}
+      {photoSection('after', 'รูปหลังซ่อม')}
+      <Card>
+        <h2 className="mb-4 font-display text-h2 font-bold text-text-heading">ความคืบหน้า</h2>
+        {ticket.timeline.length ? <ol className="grid gap-4">{ticket.timeline.map((item, index) => <li className="border-l-2 border-primary-container pl-4" key={`${item.created_at}-${index}`}>
+          <p className="font-semibold text-text-heading">{item.from_status ? `${ticketStatusLabels[item.from_status]} → ${ticketStatusLabels[item.to_status ?? item.from_status]}` : `แจ้งเรื่อง · ${ticketStatusLabels[item.to_status ?? 'pending']}`}</p>
+          <p className="text-caption text-text-muted">{formatDateTimeTH(item.created_at)}</p>
+        </li>)}</ol> : <p className="text-body text-text-muted">ยังไม่มีความคืบหน้า</p>}
+      </Card>
+      <Card>
+        <p aria-live="polite" className="mb-3 text-body text-text-muted">เจอปัญหานี้ {ticket.affected_count} บ้าน</p>
+        {!house && <p className="mb-3 text-body text-text-muted">บัญชีนี้ยังไม่ได้ผูกกับบ้าน จึงแจ้งว่าเจอปัญหาไม่ได้</p>}
+        {closed && !ticket.i_am_affected && <p className="mb-3 text-body text-text-muted">เรื่องนี้ปิดแล้ว ไม่สามารถแจ้งว่าเจอปัญหาได้</p>}
+        <Button className="w-full" disabled={busy || (!ticket.i_am_affected && (closed || !house))} onClick={() => void toggle()} variant={ticket.i_am_affected ? 'secondary' : 'outline'}>
+          {ticket.i_am_affected ? <><Users aria-hidden="true" size={20} />คุณแจ้งว่าเจอปัญหานี้แล้ว · ยกเลิก</> : <><Hand aria-hidden="true" size={20} />ฉันก็เจอปัญหานี้</>}
+        </Button>
+        {error && <p aria-live="polite" className="mt-3 rounded-md bg-tint-danger p-3 text-body text-danger">{error}</p>}
+      </Card>
+      {viewingPhoto && <PhotoViewer alt={viewingPhoto.alt} onClose={closePhotoViewer} src={viewingPhoto.src} />}
+    </div>
+  )
 }

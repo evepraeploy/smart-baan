@@ -93,7 +93,7 @@ export function AssetEditorModal({ asset, open, onClose, onSaved }: {
           <Input onChange={(event) => setInstalledOn(event.target.value)} type="date" value={installedOn} />
         </Field>
         <Field hint="กำหนดรอบตั้งแต่ 1 ถึง 3,650 วัน" label="รอบ PM (วัน)">
-          <Input max="3650" min="1" onChange={(event) => setInterval(event.target.value)} type="number" value={interval} />
+          <Input enterKeyHint="done" inputMode="numeric" max="3650" min="1" onChange={(event) => setInterval(event.target.value)} type="number" value={interval} />
         </Field>
         <Field label="สถานะ">
           <Select onChange={(event) => setStatus(event.target.value as AssetStatus)} value={status}>
@@ -105,7 +105,7 @@ export function AssetEditorModal({ asset, open, onClose, onSaved }: {
           {imagePath && !imageFile && <span className="text-caption text-text-muted">มีรูปที่บันทึกไว้แล้ว</span>}
         </Field>
         <Field label="หมายเหตุ"><Textarea maxLength={2000} onChange={(event) => setNote(event.target.value)} value={note} /></Field>
-        {error && <p aria-live="polite" className="text-body text-red-700">{error}</p>}
+        {error && <p aria-live="polite" className="text-body text-danger">{error}</p>}
       </form>
     </Modal>
   )

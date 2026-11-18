@@ -20,5 +20,19 @@ export function getBillDisplayStatus(
   const today = `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}-${parts.find((part) => part.type === 'day')?.value}`
   return today > dueDate
     ? { label: 'ค้างชำระ', tone: 'danger', icon: TriangleAlert }
-    : { label: 'รอชำระ', tone: 'neutral', icon: Calendar }
+    : { label: 'รอชำระ', tone: 'warning', icon: Clock }
+}
+
+export function getDueCountdown(dueDate: string, now = new Date()): { days: number; label: string; overdue: boolean } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const today = `${parts.find((part) => part.type === 'year')?.value}-${parts.find((part) => part.type === 'month')?.value}-${parts.find((part) => part.type === 'day')?.value}`
+  const days = Math.round((Date.parse(`${dueDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
+  if (days < 0) return { days: Math.abs(days), label: `เลยกำหนด ${Math.abs(days)} วัน`, overdue: true }
+  if (days === 0) return { days: 0, label: 'ครบกำหนดวันนี้', overdue: false }
+  return { days, label: `อีก ${days} วัน`, overdue: false }
 }

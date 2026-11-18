@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Button } from '../../components/ui/Button'
+import { StickyActionBar } from '../../components/ui/StickyActionBar'
 import { Card } from '../../components/ui/Card'
 import { Field, Input } from '../../components/ui/Field'
 import { supabase } from '../../lib/supabase'
@@ -81,17 +82,19 @@ export function ChangePasswordPage() {
   return (
     <main className="grid min-h-dvh place-items-center bg-canvas px-4 py-10">
       <Card className="w-full max-w-lg">
-        <h1 className="mb-2 text-h1 font-bold text-text-heading">เปลี่ยนรหัสผ่าน</h1>
+        <h1 className="mb-2 font-display text-h1 font-bold text-text-heading">เปลี่ยนรหัสผ่าน</h1>
         <p className="mb-6 text-body text-text-muted">{forced ? 'กรุณาตั้งรหัสผ่านใหม่ก่อนเริ่มใช้งาน' : 'กรอกรหัสผ่านปัจจุบันและตั้งรหัสผ่านใหม่'}</p>
         <form className="grid gap-5" noValidate onSubmit={submit}>
-          {!forced && <Field label="รหัสผ่านปัจจุบัน"><Input autoComplete="current-password" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} /></Field>}
-          <Field label="รหัสผ่านใหม่"><Input autoComplete="new-password" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></Field>
-          <Field label="ยืนยันรหัสผ่านใหม่"><Input autoComplete="new-password" onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></Field>
-          {error && <p className="text-body text-red-700">{error}</p>}
-          {offline && <p className="text-body text-amber-800">{messages.offlinePassword}</p>}
-          <Button busy={busy} disabled={offline} type="submit">บันทึกรหัสผ่าน</Button>
+          {!forced && <Field label="รหัสผ่านปัจจุบัน"><Input autoComplete="current-password" enterKeyHint="next" onChange={(event) => setCurrentPassword(event.target.value)} required type="password" value={currentPassword} /></Field>}
+          <Field label="รหัสผ่านใหม่"><Input autoComplete="new-password" enterKeyHint="next" minLength={8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></Field>
+          <Field label="ยืนยันรหัสผ่านใหม่"><Input autoComplete="new-password" enterKeyHint="done" onChange={(event) => setConfirmation(event.target.value)} required type="password" value={confirmation} /></Field>
+          {error && <p className="text-body text-danger">{error}</p>}
+          {offline && <p className="text-body text-secondary">{messages.offlinePassword}</p>}
+          <StickyActionBar hasBottomNav={false}>
+            <Button busy={busy} className="w-full lg:w-auto" disabled={offline} type="submit">บันทึกรหัสผ่าน</Button>
+          </StickyActionBar>
         </form>
-        {!forced && <Link className="mt-3 flex min-h-touch items-center rounded-md px-3 font-semibold text-primary-700 hover:bg-primary-50" to="/profile">ย้อนกลับ</Link>}
+        {!forced && <Link className="mt-3 flex min-h-touch items-center rounded-md px-3 font-semibold text-primary hover:bg-surface-low" to="/profile">ย้อนกลับ</Link>}
       </Card>
     </main>
   )
